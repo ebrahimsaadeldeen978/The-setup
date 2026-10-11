@@ -1,0 +1,8 @@
+{
+  "name": "Don's View - Empire Operations Command",
+  "description": "Executive tactical strategy and syndicate operations command center inspired by Don's View, featuring interactive territory mapping, crime rings tracking, family hierarchy roster, and tactical operations control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
