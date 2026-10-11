@@ -12,7 +12,12 @@ import {
   CrimeRing, 
   ConsigliereAlert,
   EmpireFinancials,
-  CitySector 
+  CitySector,
+  MarketAcquisitionTarget,
+  StrategicOpportunity,
+  FinancialTransaction,
+  HierarchyProcessNode,
+  RelationshipContact
 } from './types/dashboard';
 import { 
   INITIAL_FINANCIALS, 
@@ -21,7 +26,12 @@ import {
   INITIAL_FAMILY_ROSTER, 
   INITIAL_LIVE_OPERATIONS, 
   INITIAL_CONSIGLIERE_ALERTS,
-  INITIAL_CITY_SECTORS
+  INITIAL_CITY_SECTORS,
+  INITIAL_MARKET_TARGETS,
+  INITIAL_OPPORTUNITIES,
+  INITIAL_FINANCIAL_TRANSACTIONS,
+  INITIAL_BUSINESS_HIERARCHY,
+  INITIAL_RELATIONSHIPS
 } from './data/mockData';
 
 import { LeftIconRail } from './components/Navigation/LeftIconRail';
@@ -47,10 +57,75 @@ export default function App() {
   const [operations, setOperations] = useState<LiveOperation[]>(INITIAL_LIVE_OPERATIONS);
   const [alerts, setAlerts] = useState<ConsigliereAlert[]>(INITIAL_CONSIGLIERE_ALERTS);
 
+  // Career, Market Opportunities & Real Ledger State
+  const [marketTargets, setMarketTargets] = useState<MarketAcquisitionTarget[]>(() => {
+    const saved = localStorage.getItem('don_market_targets');
+    return saved ? JSON.parse(saved) : INITIAL_MARKET_TARGETS;
+  });
+
+  const [opportunities, setOpportunities] = useState<StrategicOpportunity[]>(() => {
+    const saved = localStorage.getItem('don_strategic_opportunities');
+    return saved ? JSON.parse(saved) : INITIAL_OPPORTUNITIES;
+  });
+
+  const [financialTransactions, setFinancialTransactions] = useState<FinancialTransaction[]>(() => {
+    const saved = localStorage.getItem('don_financial_transactions');
+    return saved ? JSON.parse(saved) : INITIAL_FINANCIAL_TRANSACTIONS;
+  });
+
+  const [hierarchyNodes, setHierarchyNodes] = useState<HierarchyProcessNode[]>(() => {
+    const saved = localStorage.getItem('don_business_hierarchy');
+    return saved ? JSON.parse(saved) : INITIAL_BUSINESS_HIERARCHY;
+  });
+
+  const [relationships, setRelationships] = useState<RelationshipContact[]>(() => {
+    const saved = localStorage.getItem('don_relationships');
+    return saved ? JSON.parse(saved) : INITIAL_RELATIONSHIPS;
+  });
+
+  // LocalStorage persistence for all 5 systems
+  useEffect(() => {
+    localStorage.setItem('don_market_targets', JSON.stringify(marketTargets));
+  }, [marketTargets]);
+
+  useEffect(() => {
+    localStorage.setItem('don_strategic_opportunities', JSON.stringify(opportunities));
+  }, [opportunities]);
+
+  useEffect(() => {
+    localStorage.setItem('don_financial_transactions', JSON.stringify(financialTransactions));
+  }, [financialTransactions]);
+
+  useEffect(() => {
+    localStorage.setItem('don_business_hierarchy', JSON.stringify(hierarchyNodes));
+  }, [hierarchyNodes]);
+
+  useEffect(() => {
+    localStorage.setItem('don_relationships', JSON.stringify(relationships));
+  }, [relationships]);
+
+  // Synchronize target 1 (identified) with contacts count and target 4 with opportunities count if desired
+  useEffect(() => {
+    setMarketTargets(prev => prev.map(target => {
+      if (target.stage === 'identified' && relationships.length > target.actualCount) {
+        return { ...target, actualCount: relationships.length };
+      }
+      if (target.stage === 'opportunities' && opportunities.length > target.actualCount) {
+        return { ...target, actualCount: opportunities.length };
+      }
+      return target;
+    }));
+  }, [relationships.length, opportunities.length]);
+
   // Selection
   const [selectedNode, setSelectedNode] = useState<RacketNode | null>(null);
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [selectedRingFilter, setSelectedRingFilter] = useState<string | null>(null);
+
+  // Selected Relationship & Modal
+  const [selectedRelationship, setSelectedRelationship] = useState<RelationshipContact | null>(null);
+  const [isRelationshipModalOpen, setIsRelationshipModalOpen] = useState(false);
+  const [isRelationshipCreateMode, setIsRelationshipCreateMode] = useState(false);
 
   // Modals
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
@@ -60,6 +135,7 @@ export default function App() {
 
   const [isHierarchyModalOpen, setIsHierarchyModalOpen] = useState(false);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+
 
   // Google Maps Quota State
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
@@ -359,23 +435,55 @@ export default function App() {
             {/* THE 3 STRATEGIC WINDOWS SIDE-BY-SIDE IN THE BOTTOM */}
             <div className="w-full shrink-0">
               <StrategicRacketsPanel
-                crimeRings={crimeRings}
-                rackets={currentRegionNodes}
-                selectedRingFilter={selectedRingFilter}
-                onSelectRingFilter={(cat) => setSelectedRingFilter(selectedRingFilter === cat ? null : cat)}
-                onSelectRacket={(racket) => setSelectedNode(racket)}
+                marketTargets={marketTargets}
+                onUpdateMarketTarget={(updatedTarget) => {
+                  setMarketTargets(prev => prev.map(t => t.id === updatedTarget.id ? updatedTarget : t));
+                }}
+                opportunities={opportunities}
+                onAddOpportunity={(newOpp) => {
+                  setOpportunities(prev => [newOpp, ...prev]);
+                }}
+                onUpdateOpportunity={(updatedOpp) => {
+                  setOpportunities(prev => prev.map(o => o.id === updatedOpp.id ? updatedOpp : o));
+                }}
+                onDeleteOpportunity={(oppId) => {
+                  setOpportunities(prev => prev.filter(o => o.id !== oppId));
+                }}
+                financialTransactions={financialTransactions}
+                onAddTransaction={(newTx) => {
+                  setFinancialTransactions(prev => [newTx, ...prev]);
+                }}
+                onDeleteTransaction={(txId) => {
+                  setFinancialTransactions(prev => prev.filter(t => t.id !== txId));
+                }}
               />
             </div>
           </main>
 
           {/* RIGHT COLUMN: Executive Hierarchy Tree & Member Profiles */}
           <ExecutiveRosterPanel
-            roster={roster}
-            onDispatchMember={handleDispatchFromRoster}
+            hierarchyNodes={hierarchyNodes}
             onOpenHierarchyTree={() => setIsHierarchyModalOpen(true)}
-            onSelectMember={(mem) => {
-              setSelectedMember(mem);
-              setIsMemberModalOpen(true);
+            relationships={relationships}
+            onSelectRelationship={(rel) => {
+              setSelectedRelationship(rel);
+              setIsRelationshipCreateMode(false);
+              setIsRelationshipModalOpen(true);
+            }}
+            onOpenAddRelationship={() => {
+              setSelectedRelationship(null);
+              setIsRelationshipCreateMode(true);
+              setIsRelationshipModalOpen(true);
+            }}
+            onOpenAllRelationships={() => {
+              if (relationships.length > 0) {
+                setSelectedRelationship(relationships[0]);
+                setIsRelationshipCreateMode(false);
+              } else {
+                setSelectedRelationship(null);
+                setIsRelationshipCreateMode(true);
+              }
+              setIsRelationshipModalOpen(true);
             }}
           />
 
@@ -394,28 +502,37 @@ export default function App() {
         onConfirmDispatch={handleConfirmDispatch}
       />
 
+      {/* Window 4 Modal: Organizational Hierarchy for Business Process Architecture */}
       <HierarchyModal
         isOpen={isHierarchyModalOpen}
         onClose={() => setIsHierarchyModalOpen(false)}
-        roster={roster}
-        onSelectMember={(mem) => {
-          setSelectedMember(mem);
-          setIsMemberModalOpen(true);
-        }}
+        nodes={hierarchyNodes}
+        onAddNode={(newNode) => setHierarchyNodes(prev => [...prev, newNode])}
+        onUpdateNode={(updatedNode) => setHierarchyNodes(prev => prev.map(n => n.id === updatedNode.id ? updatedNode : n))}
+        onDeleteNode={(nodeId) => setHierarchyNodes(prev => prev.filter(n => n.id !== nodeId))}
       />
 
+      {/* Window 5 Modal: Member Profiles & Business Relationship Dossier */}
       <MemberModal
-        isOpen={isMemberModalOpen}
-        onClose={() => setIsMemberModalOpen(false)}
-        member={selectedMember}
-        onUpgradeGear={(memId) => {
-          setRoster(prev => prev.map(m => m.id === memId ? { ...m, successBonusPct: m.successBonusPct + 10 } : m));
+        isOpen={isRelationshipModalOpen}
+        onClose={() => setIsRelationshipModalOpen(false)}
+        contact={selectedRelationship}
+        isCreateMode={isRelationshipCreateMode}
+        onAddContact={(newContact) => {
+          setRelationships(prev => [newContact, ...prev]);
+          setSelectedRelationship(newContact);
         }}
-        onHealMember={(memId) => {
-          setRoster(prev => prev.map(m => m.id === memId ? { ...m, healthPercent: 100, status: 'active' } : m));
+        onUpdateContact={(updatedContact) => {
+          setRelationships(prev => prev.map(c => c.id === updatedContact.id ? updatedContact : c));
+          setSelectedRelationship(updatedContact);
+        }}
+        onDeleteContact={(contactId) => {
+          setRelationships(prev => prev.filter(c => c.id !== contactId));
+          setSelectedRelationship(null);
         }}
       />
 
     </div>
   );
 }
+

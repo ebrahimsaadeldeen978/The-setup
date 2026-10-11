@@ -217,3 +217,117 @@ export const INITIAL_CONSIGLIERE_ALERTS: ConsigliereAlert[] = [
     severity: 'intel'
   }
 ];
+
+// 1. Initial Market Acquisition Targets (Ring Completion)
+export const INITIAL_MARKET_TARGETS = [
+  {
+    id: 'target-1',
+    stage: 'identified' as const,
+    title: 'أنشطة مستهدفة',
+    subtitle: 'IDENTIFIED',
+    targetCount: 20,
+    actualCount: 0,
+    timeframe: 'الربع الحالي',
+    description: 'عدد الأنشطة التجارية المستهدفة التي تم التعرف عليها في السوق.',
+    lastUpdated: 'اليوم',
+  },
+  {
+    id: 'target-2',
+    stage: 'contacted' as const,
+    title: 'جهات متواصل معها',
+    subtitle: 'CONTACTED',
+    targetCount: 15,
+    actualCount: 0,
+    timeframe: 'الربع الحالي',
+    description: 'عدد الجهات التي تم التواصل معها فعليًا وفتح قنوات حديث.',
+    lastUpdated: 'اليوم',
+  },
+  {
+    id: 'target-3',
+    stage: 'meetings' as const,
+    title: 'اجتماعات وزيارات',
+    subtitle: 'MEETINGS',
+    targetCount: 10,
+    actualCount: 0,
+    timeframe: 'الربع الحالي',
+    description: 'عدد الاجتماعات الميدانية أو الزيارات المنفذة لاستكشاف الاحتياج.',
+    lastUpdated: 'اليوم',
+  },
+  {
+    id: 'target-4',
+    stage: 'opportunities' as const,
+    title: 'فرص مهنية فعلية',
+    subtitle: 'QUALIFIED',
+    targetCount: 5,
+    actualCount: 0,
+    timeframe: 'الربع الحالي',
+    description: 'عدد العلاقات المهنية التي تطورت إلى فرص ومشاريع فعلية.',
+    lastUpdated: 'اليوم',
+  },
+];
+
+// 2. Initial Strategic Perks (Opportunities)
+export const INITIAL_OPPORTUNITIES = [];
+
+// 3. Initial Revenue Breakdown Transactions
+export const INITIAL_FINANCIAL_TRANSACTIONS = [];
+
+// 4. Initial Organizational Hierarchy (Business Process Architecture)
+export const INITIAL_BUSINESS_HIERARCHY = [
+  {
+    id: 'proc-supply',
+    name: 'مرحلة التوريد والإمداد (Procurement)',
+    level: 'phase' as const,
+    parentId: null,
+    clientOrProject: 'نموذج النشاط الافتراضي',
+    status: 'data-gathering' as const,
+    evidenceNotes: 'فحص دورات طلب المواد والموردين وقوائم الأسعار الحالية.',
+    detectedGaps: 'تأخر في تسليم الخامات وتباين فواتير التوريد.',
+    interventions: 'وضع آلية رقمية لتتبع الموردين وتوحيد أوامر الشراء.',
+    measuredResults: 'قيد القياس الأولي.',
+    updatedAt: '2026-10-11',
+  },
+  {
+    id: 'proc-prod',
+    name: 'مرحلة التشغيل والإنتاج (Operations)',
+    level: 'phase' as const,
+    parentId: null,
+    clientOrProject: 'نموذج النشاط الافتراضي',
+    status: 'uninspected' as const,
+    evidenceNotes: 'مراجعة خطوط الإنتاج والفاقد وسجلات الورديات.',
+    detectedGaps: '',
+    interventions: '',
+    measuredResults: '',
+    updatedAt: '2026-10-11',
+  },
+  {
+    id: 'proc-sales',
+    name: 'مرحلة المبيعات والتوزيع (Sales & Distribution)',
+    level: 'phase' as const,
+    parentId: null,
+    clientOrProject: 'نموذج النشاط الافتراضي',
+    status: 'gap-detected' as const,
+    evidenceNotes: 'تحليل قنوات البيع ونقاط التوزيع وإيرادات العملاء.',
+    detectedGaps: 'عدم وجود نظام مركزي لتتبع أوامر العملاء وفواتير الآجل.',
+    interventions: 'تصميم لوحة مؤشرات أداء للتدفقات النقدية والمبيعات.',
+    measuredResults: '',
+    updatedAt: '2026-10-11',
+  },
+  {
+    id: 'proc-finance',
+    name: 'قسم الإدارة والرقابة المالية (Finance & Control)',
+    level: 'department' as const,
+    parentId: 'proc-sales',
+    clientOrProject: 'نموذج النشاط الافتراضي',
+    status: 'improving' as const,
+    evidenceNotes: 'مراجعة الحسابات والتكاليف الثابتة والمتغيرة.',
+    detectedGaps: 'تأخر إعداد التقارير الشهرية لأكثر من 20 يوماً.',
+    interventions: 'أتمتة تقرير الإيرادات والتكاليف وتحديد نقطة التعادل.',
+    measuredResults: 'تقليص وقت إصدار التقارير إلى 48 ساعة.',
+    updatedAt: '2026-10-11',
+  },
+];
+
+// 5. Initial Member Profiles (Professional & Business Relationships)
+export const INITIAL_RELATIONSHIPS = [];
+

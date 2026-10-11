@@ -35,7 +35,35 @@ export type RacketType =
   | 'Smuggling Depot' 
   | 'Extortion Front';
 
-export type OwnershipStatus = 'owned' | 'contested' | 'rival' | 'neutral';
+export type MapLocationCategory = 
+  | 'potential-client'       // عملاء محتملون
+  | 'current-client'         // عملاء حاليون
+  | 'business-supplier'      // أنشطة تجارية وموردون
+  | 'conference-event'       // مؤتمرات وفعاليات مهنية
+  | 'cafe-coworking'         // كافيهات ومطاعم ومساحات عمل
+  | 'meeting-visit-site';    // مواقع الزيارات والاجتماعات السابقة
+
+export type LocationImportance = 'high' | 'medium' | 'low';
+
+export type LocationActivityStatus = 
+  | 'active'       // نشط / قيد المتابعة
+  | 'scheduled'    // مجدول / محدد له موعد
+  | 'completed'    // مكتمل / تم اللقاء
+  | 'potential'    // فرصة محتملة
+  | 'dormant';     // خامل / مؤجل
+
+export interface BusinessModelCanvas {
+  keyPartners: string;           // الشركاء الرئيسيون
+  keyActivities: string;         // الأنشطة الرئيسية
+  keyResources: string;          // الموارد الرئيسية
+  valuePropositions: string;     // القيمة المقدمة وعروض القيمة
+  customerRelationships: string; // العلاقات مع العملاء
+  channels: string;              // قنوات التواصل والتوزيع
+  customerSegments: string;      // شرائح العملاء المستهدفة
+  costStructure: string;         // هيكل التكاليف
+  revenueStreams: string;        // مصادر الإيرادات وتدفقات الدخل
+  notes?: string;                // ملاحظات استراتيجية
+}
 
 export interface RacketNode {
   id: string;
@@ -59,6 +87,17 @@ export interface RacketNode {
   smokeEffect?: boolean;
   assignedCapo?: string;
   lastIncident?: string;
+
+  // New Career & Professional Map Location Fields:
+  locationCategory?: MapLocationCategory; // تصنيف النقطة
+  locationImportance?: LocationImportance; // درجة الأهمية
+  activityStatus?: LocationActivityStatus; // حالة النقطة
+  hexColor?: string; // كود اللون السداسي المخصص (Hex Code)
+  customIcon?: string; // اسم الأيقونة المختارة
+  lastInteractionDate?: string; // تاريخ آخر تفاعل
+  addressDetails?: string; // تفاصيل العنوان أو المنطقة
+  notes?: string; // ملاحظات عامة
+  businessCanvas?: BusinessModelCanvas; // نموذج العمل التجاري (Business Model Canvas) للعملاء
 }
 
 export interface CrimeRing {
@@ -133,3 +172,119 @@ export interface EmpireFinancials {
   dailyExtortionYield: number;
   activeGuardsPayroll: number;
 }
+
+// ==========================================
+// Professional Journey & Opportunity System Types
+// ==========================================
+
+export type MarketGoalStage = 'identified' | 'contacted' | 'meetings' | 'opportunities';
+
+export interface MarketAcquisitionTarget {
+  id: string;
+  stage: MarketGoalStage;
+  title: string;
+  subtitle: string;
+  targetCount: number;
+  actualCount: number;
+  timeframe: string; // e.g. "Q1 2026", "هذا الشهر", "الربع الحالي"
+  description?: string;
+  lastUpdated?: string;
+}
+
+export type OpportunityStage = 
+  | 'discovered'    // اكتُشفت
+  | 'verifying'     // قيد التحقق
+  | 'ready'         // جاهزة للتقديم
+  | 'in-progress'   // قيد التنفيذ
+  | 'completed'     // مكتملة
+  | 'paused';       // متوقفة
+
+export interface StrategicOpportunity {
+  id: string;
+  title: string;
+  organization: string; // الجهة المرتبطة بها
+  shortDescription: string;
+  availableEvidence: string; // الأدلة المتاحة
+  stage: OpportunityStage; // الحالة الحالية
+  nextStep: string; // الخطوة التالية
+  followUpDate: string; // موعد المتابعة
+  estimatedValue?: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export type FinancialCategory = 
+  | 'data-analysis'    // تحليل البيانات
+  | 'consulting'       // استشارات
+  | 'systems-impl'     // تنفيذ الأنظمة
+  | 'other';           // أخرى
+
+export interface FinancialTransaction {
+  id: string;
+  type: 'revenue' | 'cost'; // إيراد أم تكلفة
+  amount: number;
+  date: string;
+  source: string; // المصدر
+  clientOrProject: string; // المشروع أو العميل المرتبط
+  category: FinancialCategory;
+  notes?: string;
+}
+
+export type HierarchyNodeStatus = 
+  | 'uninspected'   // لم يُفحص بعد
+  | 'data-gathering'// قيد جمع البيانات أو الفهم
+  | 'verified'      // تم فهمه والتحقق من المعلومات المتاحة
+  | 'gap-detected'  // تم اكتشاف مشكلة أو فجوة فيه
+  | 'improving'     // يجري العمل على تحسينه
+  | 'measured';     // تم تنفيذ تدخل وقياس نتيجته
+
+export interface HierarchyProcessNode {
+  id: string;
+  name: string;
+  level: 'phase' | 'department' | 'process'; // مرحلة رئيسية | قسم | عملية
+  parentId?: string | null;
+  clientOrProject: string;
+  status: HierarchyNodeStatus;
+  evidenceNotes: string; // الملاحظات والأدلة
+  detectedGaps?: string; // المشكلات والفجوات
+  interventions?: string; // التدخلات
+  measuredResults?: string; // النتائج المرتبطة
+  updatedAt: string;
+}
+
+export type RelationshipRole = 
+  | 'potential-client'  // عميل محتمل
+  | 'active-client'     // عميل حالي
+  | 'supplier'          // مورد
+  | 'potential-partner' // شريك محتمل
+  | 'advisor'           // مستشار / موجه
+  | 'other';            // أخرى
+
+export type RelationshipStatus = 
+  | 'initial-contact'   // تواصل أولي
+  | 'needs-analysis'    // تحليل احتياج
+  | 'active-deal'       // صفقة / مشروع قائم
+  | 'nurturing'         // متابعة وبناء ثقة
+  | 'dormant';          // خامل
+
+export interface RelationshipContact {
+  id: string;
+  name: string;
+  organization: string; // الجهة أو النشاط
+  roleType: RelationshipRole;
+  relationshipStatus: RelationshipStatus;
+  locationId?: string; // معرف النقطة أو النشاط التجاري المرتبط بالخريطة
+  projectOrDeal?: string;
+  lastContactDate: string; // تاريخ آخر تواصل
+  lastContactResult: string; // نتيجة آخر تواصل
+  nextStep: string; // الخطوة التالية المطلوبة
+  nextStepDate: string; // موعدها
+  interactionsLog?: {
+    id: string;
+    date: string;
+    notes: string;
+    outcome: string;
+  }[];
+  avatarInitials: string;
+}
+
