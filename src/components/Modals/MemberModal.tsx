@@ -39,8 +39,6 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   onAddContact,
   isCreateMode = false,
 }) => {
-  if (!isOpen) return null;
-
   const [isEditing, setIsEditing] = useState(isCreateMode || !contact);
 
   // Form Fields
@@ -155,6 +153,8 @@ export const MemberModal: React.FC<MemberModalProps> = ({
     setNewLogNotes('');
     setNewLogOutcome('');
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">

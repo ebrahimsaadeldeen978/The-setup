@@ -28,9 +28,20 @@ import {
   ChevronDown,
   ChevronUp,
   Tag,
-  Store
+  Store,
+  FileText,
+  Camera,
+  Edit3,
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { RacketNode, TerritoryRegion, CitySector } from '../../types/dashboard';
+import { 
+  TacticalMapPinGraphic, 
+  getPinTypeMeta, 
+  renderPinIcon 
+} from './TacticalPinRegistry';
+import { AddMapLocationModal } from '../Modals/AddMapLocationModal';
 
 export type MapThemeMode = 'parchment' | 'noir' | 'sepia' | 'satellite';
 
@@ -253,6 +264,8 @@ interface TacticalMapCanvasProps {
   onLaunchOperation: (node: RacketNode, type: 'takeover' | 'reinforce' | 'extort' | 'arson_bomb') => void;
   filterRingCategory?: string | null;
   onAddNewRacket?: (newRacket: RacketNode) => void;
+  onDeleteRacket?: (nodeId: string) => void;
+  onUpdateRacket?: (updatedNode: RacketNode) => void;
   onSelectRegion?: (region: TerritoryRegion) => void;
 }
 
@@ -265,6 +278,8 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
   onSelectNode,
   onLaunchOperation,
   onAddNewRacket,
+  onDeleteRacket,
+  onUpdateRacket,
   onSelectRegion,
 }) => {
   // Region Center Presets (Defaulting to Mansoura and looking up dynamic sectors)
@@ -309,11 +324,9 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
   // Hover state
   const [hoveredNode, setHoveredNode] = useState<RacketNode | null>(null);
 
-  // Create Racket Modal
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
-  const [newRacketName, setNewRacketName] = useState<string>('');
-  const [newRacketType, setNewRacketType] = useState<RacketNode['type']>('Warehouse');
-  const [newRacketIncome, setNewRacketIncome] = useState<number>(25000);
+  // Add Pin / Map Location Modal & Editing State
+  const [isAddLocationModalOpen, setIsAddLocationModalOpen] = useState<boolean>(false);
+  const [editingNode, setEditingNode] = useState<RacketNode | null>(null);
 
   // Telemetry
   const [currentTelemetry, setCurrentTelemetry] = useState<{ lat: number; lng: number; zoom: number }>({
@@ -369,38 +382,73 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     setIsPickMode(true);
   };
 
-  // Create new Racket at captured location
-  const handleCreateRacket = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pickedLocation || !onAddNewRacket) return;
+  // Open fresh Add Pin Modal
+  const handleOpenAddPin = () => {
+    setEditingNode(null);
+    setIsAddLocationModalOpen(true);
+  };
 
-    const newRacket: RacketNode = {
-      id: `custom-${Date.now()}`,
-      name: newRacketName.trim() || `Syndicate Front #${Math.floor(Math.random() * 900 + 100)}`,
-      type: newRacketType,
-      region: region,
-      x: 50,
-      y: 50,
-      lat: pickedLocation.lat,
-      lng: pickedLocation.lng,
-      status: 'owned',
-      controllingSyndicate: 'Valenti Syndicate',
-      hourlyIncome: newRacketIncome,
-      defenseLevel: 80,
-      maxDefense: 100,
-      guardCount: 12,
-      maxGuards: 20,
-      ringCategory: newRacketType === 'Casino' ? 'Gambling & Casinos' : newRacketType === 'Chop Shop' ? 'Chop Shops' : 'Extortion & Protection',
-      strategicBonusText: 'Custom Field Outpost Established at Target Coordinates',
-      underAttack: false,
-      smokeEffect: false,
-    };
+  // Open Edit Pin Modal
+  const handleOpenEditPin = (node: RacketNode) => {
+    setEditingNode(node);
+    setIsAddLocationModalOpen(true);
+  };
 
-    onAddNewRacket(newRacket);
-    setIsCreateModalOpen(false);
+  // Delete Pin Handler
+  const handleDeletePin = (nodeId: string) => {
+    if (onDeleteRacket) {
+      onDeleteRacket(nodeId);
+    }
+    if (activeVenue?.id === nodeId) {
+      onSelectNode(null);
+    }
+  };
+
+  // Add new Pin Location to Map
+  const handleAddLocation = (newNode: RacketNode) => {
+    if (onAddNewRacket) {
+      onAddNewRacket(newNode);
+    }
+    setEditingNode(null);
+    setIsAddLocationModalOpen(false);
     setIsPickMode(false);
     setPickedLocation(null);
-    setNewRacketName('');
+  };
+
+  // Update existing Pin Location
+  const handleUpdateLocation = (updatedNode: RacketNode) => {
+    if (onUpdateRacket) {
+      onUpdateRacket(updatedNode);
+    }
+    setEditingNode(null);
+    setIsAddLocationModalOpen(false);
+  };
+
+  // Handle direct image upload on the active venue card
+  const handleActiveVenueImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeVenue || !onUpdateRacket) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        const updated: RacketNode = {
+          ...activeVenue,
+          imageUrl: reader.result,
+        };
+        onUpdateRacket(updated);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle image removal on active venue card
+  const handleRemoveActiveVenueImage = () => {
+    if (!activeVenue || !onUpdateRacket) return;
+    const updated: RacketNode = {
+      ...activeVenue,
+      imageUrl: undefined,
+    };
+    onUpdateRacket(updated);
   };
 
   // Medallion Styling
@@ -499,12 +547,16 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
             {/* Smooth Fly Controller */}
             <MapController center={mapCenter} zoom={mapZoom} />
 
-            {/* RENDER EXCLUSIVELY CUSTOM SYNDICATE RACKET NODES */}
+            {/* RENDER EXCLUSIVELY TACTICAL PINS (ALL MAP ITEMS ARE IN PIN SHAPE) */}
             {nodes.map((node) => {
               const isSelected = activeVenue?.id === node.id;
               const isHovered = hoveredNode?.id === node.id;
               const isContested = node.status === 'contested';
-              const config = getMedallionConfig(node);
+              
+              // Pin styling: custom hexColor, customIcon or pinType
+              const pinMeta = getPinTypeMeta(node.pinType || node.customIcon);
+              const pinColor = node.hexColor || pinMeta?.defaultColor || '#B31B24';
+              const pinIconName = node.customIcon || pinMeta?.iconName || 'MapPin';
 
               return (
                 <TacticalOverlayMarker
@@ -514,6 +566,7 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
                 >
                   <div
                     className="flex flex-col items-center cursor-pointer group"
+                    style={{ transform: 'translate(0, -22px)' }}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectNode(node);
@@ -522,66 +575,82 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
                     onMouseEnter={() => setHoveredNode(node)}
                     onMouseLeave={() => setHoveredNode(null)}
                   >
-                    {/* Compact Guard Strength Pip */}
-                    <div className="mb-0.5 bg-[#FFFFFF] border border-[#E2DACB] rounded-full px-1.5 py-0 flex items-center gap-1 shadow-xs">
-                      <span className={`w-1.5 h-1.5 rounded-full ${config.tallyBg}`} />
-                      <span className="text-[8px] font-mono-num font-bold text-[#1C191E]">
-                        {node.guardCount}G
-                      </span>
-                    </div>
-
-                    {/* 3D Medallion */}
+                    {/* The Real Pin Graphic */}
                     <div className="relative">
-                      {isSelected && (
-                        <div className="absolute -inset-1 rounded-full border-2 border-[#B31B24] animate-ping pointer-events-none" />
-                      )}
+                      <TacticalMapPinGraphic
+                        color={pinColor}
+                        iconName={pinIconName}
+                        isSelected={isSelected}
+                        isHovered={isHovered}
+                        size="md"
+                      />
 
-                      {showInfluenceRings && node.status === 'owned' && (
-                        <div 
-                          className="absolute -inset-3 rounded-full opacity-40 pointer-events-none animate-pulse"
-                          style={{ backgroundColor: config.glowColor }}
-                        />
-                      )}
-
-                      <div
-                        className={`w-8 h-8 rounded-full border-2 ${config.border} bg-gradient-to-b ${config.bgGradient} flex items-center justify-center shadow-md transform transition-all duration-200 ${
-                          isSelected ? 'scale-115 ring-2 ring-[#B31B24]' : 'group-hover:scale-110'
-                        }`}
-                      >
-                        {config.icon}
-                      </div>
-
+                      {/* Contested Badge */}
                       {isContested && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#B31B24] border border-white flex items-center justify-center text-white text-[9px] font-black shadow-sm animate-bounce">
+                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#B31B24] border border-white flex items-center justify-center text-white text-[9px] font-black shadow-sm animate-bounce z-40">
                           <Flame className="w-2.5 h-2.5" />
+                        </div>
+                      )}
+
+                      {/* Note indicator pip if note exists */}
+                      {node.notes && (
+                        <div 
+                          className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-[#FEF08A] border border-[#CA8A04] flex items-center justify-center text-[9px] text-[#854D0E] font-bold shadow-xs z-40"
+                          title={`ملاحظة: ${node.notes}`}
+                        >
+                          📝
                         </div>
                       )}
                     </div>
 
-                    {/* Venue Name Label (Controlled by toggle or hover/selection) */}
+                    {/* Venue Name Label & Pin Category */}
                     {(showVenueLabels || isSelected || isHovered) && (
-                      <div className={`mt-0.5 px-1.5 py-0.2 rounded border font-serif-title font-bold text-[9px] tracking-wide whitespace-nowrap shadow-xs transition-all ${
+                      <div className={`mt-0.5 px-2 py-0.5 rounded-md border font-serif-title font-bold text-[9px] tracking-wide whitespace-nowrap shadow-xs transition-all flex items-center gap-1 z-30 ${
                         isSelected
                           ? 'bg-[#B31B24] text-white border-[#B31B24]'
                           : isHovered
                           ? 'bg-[#1C191E] text-white border-black'
                           : 'bg-[#FFFFFF]/95 text-[#1C191E] border-[#E2DACB]'
                       }`}>
-                        {node.name}
+                        <span>{node.name}</span>
+                        {pinMeta && (
+                          <span className={`text-[7.5px] px-1 py-0.2 rounded font-normal ${
+                            isSelected ? 'bg-white/20 text-white' : 'bg-[#FAF8F5] text-[#7A747D]'
+                          }`}>
+                            {pinMeta.shortTitle}
+                          </span>
+                        )}
                       </div>
                     )}
 
-                    {/* Interactive Hover Tooltip */}
+                    {/* Interactive Hover Card with Note */}
                     {isHovered && !isSelected && (
-                      <div className="absolute bottom-12 z-50 pointer-events-none bg-[#FFFFFF] border border-[#E2DACB] rounded-lg p-2 shadow-xl text-[#1C191E] w-48 text-left animate-in fade-in zoom-in-95 duration-100">
-                        <div className="font-serif-title font-bold text-[10px] text-[#1C191E] truncate">
-                          {node.name}
+                      <div 
+                        className="absolute bottom-14 z-50 pointer-events-none bg-[#FFFFFF] border border-[#E2DACB] rounded-xl p-2.5 shadow-2xl text-[#1C191E] w-52 text-right animate-in fade-in zoom-in-95 duration-100"
+                        dir="rtl"
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <div 
+                            className="w-4 h-4 rounded flex items-center justify-center text-white shrink-0" 
+                            style={{ backgroundColor: pinColor }}
+                          >
+                            {renderPinIcon(pinIconName, "w-2.5 h-2.5 text-white")}
+                          </div>
+                          <div className="font-serif-title font-bold text-xs text-[#1C191E] truncate">
+                            {node.name}
+                          </div>
                         </div>
-                        <div className="text-[9px] text-[#7A747D] uppercase">
-                          {node.type} &bull; <span className="font-mono-num text-[#15803D] font-bold">+${node.hourlyIncome.toLocaleString()}/hr</span>
+                        <div className="text-[9.5px] font-bold text-[#B31B24] mb-1">
+                          {pinMeta ? `${pinMeta.label} (${pinMeta.meaning})` : (node.controllingSyndicate || node.type)}
                         </div>
-                        <div className="text-[9px] text-[#7A747D]">
-                          Defense: {node.defenseLevel}% &bull; Garrison: {node.guardCount}/{node.maxGuards}
+                        {node.notes && (
+                          <div className="p-1.5 rounded bg-[#FEF9C3]/80 border border-[#FDE047] text-[9px] text-[#854D0E] font-medium mb-1">
+                            <span className="font-bold">📝 ملاحظة: </span>
+                            <span>{node.notes}</span>
+                          </div>
+                        )}
+                        <div className="text-[8.5px] text-[#7A747D] font-mono-num">
+                          الإحداثيات: {node.lat.toFixed(4)}°, {node.lng.toFixed(4)}°
                         </div>
                       </div>
                     )}
@@ -590,15 +659,22 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
               );
             })}
 
-            {/* Captured Target Marker */}
+            {/* Captured Target Marker (bouncing pin in pick mode) */}
             {pickedLocation && (
               <TacticalOverlayMarker position={pickedLocation} zIndex={50}>
-                <div className="flex flex-col items-center animate-bounce">
-                  <div className="w-8 h-8 rounded-full bg-[#B31B24] border-2 border-white flex items-center justify-center text-white shadow-lg">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <span className="text-[8px] font-bold bg-[#1C191E] text-white px-1.5 py-0.5 rounded mt-0.5 whitespace-nowrap">
-                    Selected Location
+                <div 
+                  className="flex flex-col items-center animate-bounce cursor-pointer"
+                  style={{ transform: 'translate(0, -22px)' }}
+                  onClick={() => setIsAddLocationModalOpen(true)}
+                >
+                  <TacticalMapPinGraphic
+                    color="#D97706"
+                    iconName="MapPin"
+                    isSelected={true}
+                    size="md"
+                  />
+                  <span className="text-[8px] font-bold bg-[#1C191E] text-white px-2 py-0.5 rounded-full mt-0.5 whitespace-nowrap shadow-sm">
+                    موقع محدد (اضغط لإضافة دبوس)
                   </span>
                 </div>
               </TacticalOverlayMarker>
@@ -654,13 +730,14 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
           <div className="absolute top-3 left-14 z-30 bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1.5 rounded-lg flex items-center gap-2.5 shadow-md text-xs text-[#92400E]">
             <MapPin className="w-3.5 h-3.5 text-[#D97706]" />
             <span>
-              Captured: <strong className="font-mono-num">{pickedLocation.lat.toFixed(4)}°, {pickedLocation.lng.toFixed(4)}°</strong>
+              موقع محدد: <strong className="font-mono-num">{pickedLocation.lat.toFixed(4)}°, {pickedLocation.lng.toFixed(4)}°</strong>
             </span>
             <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-2 py-0.5 rounded bg-[#D97706] hover:bg-[#B45309] text-white font-bold text-[10px] uppercase cursor-pointer"
+              onClick={() => setIsAddLocationModalOpen(true)}
+              className="px-2.5 py-1 rounded bg-[#B31B24] hover:bg-[#C7232D] text-white font-bold text-[10px] cursor-pointer shadow-xs flex items-center gap-1"
             >
-              + Add Front
+              <MapPin className="w-3 h-3" />
+              <span>+ تأكيد الدبوس هنا</span>
             </button>
             <button
               onClick={() => {
@@ -677,94 +754,183 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
         {/* ============================================================== */}
         {/* 2. DOCKED NON-OVERLAPPING TACTICAL VENUE DOSSIER (BOTTOM RIGHT) */}
         {/* ============================================================== */}
-        {activeVenue && (
-          <div className="absolute bottom-12 right-3 z-20 max-w-[270px] w-full bg-[#FFFFFF] border border-[#E2DACB] rounded-xl shadow-xl text-[#1C191E] overflow-hidden transition-all duration-200">
-            {/* Header */}
-            <div className="bg-[#FAF8F5] border-b border-[#EFEAE0] px-3 py-1.5 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 truncate">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getMedallionConfig(activeVenue).tallyBg }} />
-                <h3 className="font-serif-title text-xs font-bold uppercase text-[#1C191E] truncate">
-                  {activeVenue.name}
-                </h3>
+        {activeVenue && (() => {
+          const activePinMeta = getPinTypeMeta(activeVenue.pinType || activeVenue.customIcon);
+          const activePinColor = activeVenue.hexColor || activePinMeta?.defaultColor || '#B31B24';
+          const activePinIcon = activeVenue.customIcon || activePinMeta?.iconName || 'MapPin';
+
+          return (
+            <div className="absolute bottom-12 right-3 z-20 max-w-[290px] w-full bg-[#FFFFFF] border border-[#E2DACB] rounded-xl shadow-xl text-[#1C191E] overflow-hidden transition-all duration-200" dir="rtl">
+              {/* Image Banner at Top (صورة تعبيرية لشكل المكان) */}
+              {activeVenue.imageUrl ? (
+                <div className="relative w-full h-28 bg-[#1C191E] overflow-hidden group">
+                  <img 
+                    src={activeVenue.imageUrl} 
+                    alt={activeVenue.name} 
+                    className="w-full h-full object-cover" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                  <label 
+                    className="absolute bottom-2 left-2 bg-black/70 hover:bg-black/90 text-white text-[9px] font-bold px-2 py-0.5 rounded backdrop-blur-xs cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shadow-xs"
+                    title="تغيير الصورة"
+                  >
+                    <Camera className="w-3 h-3 text-white" />
+                    <span>تغيير الصورة</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleActiveVenueImageUpload} 
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRemoveActiveVenueImage}
+                    className="absolute top-2 left-2 bg-black/60 hover:bg-red-600 text-white p-1 rounded-full backdrop-blur-xs cursor-pointer opacity-0 group-hover:opacity-100 transition-all shadow-xs"
+                    title="حذف الصورة"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative w-full bg-[#FAF8F5] border-b border-[#EFEAE0] p-2 text-center group hover:bg-[#F4F1EA] transition-colors">
+                  <label className="cursor-pointer flex items-center justify-center gap-1.5 text-[#7A747D] hover:text-[#B31B24] transition-colors w-full">
+                    <div className="w-5 h-5 rounded-full bg-white border border-[#E2DACB] flex items-center justify-center text-[#B31B24] shadow-xs group-hover:scale-110 transition-transform">
+                      <Camera className="w-3 h-3" />
+                    </div>
+                    <span className="text-[9.5px] font-bold">
+                      + إضافة صورة تعبيرية لشكل المكان
+                    </span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleActiveVenueImageUpload} 
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* Header */}
+              <div className="bg-[#FAF8F5] border-b border-[#EFEAE0] px-3 py-1.5 flex items-center justify-between">
+                <div className="flex items-center gap-2 truncate">
+                  <div 
+                    className="w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0 shadow-xs"
+                    style={{ backgroundColor: activePinColor }}
+                  >
+                    {renderPinIcon(activePinIcon, "w-3 h-3 text-white")}
+                  </div>
+                  <h3 className="font-serif-title text-xs font-bold text-[#1C191E] truncate">
+                    {activeVenue.name}
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setIsDossierMinimized(!isDossierMinimized)}
+                    className="p-1 text-[#7A747D] hover:text-[#1C191E] cursor-pointer"
+                    title={isDossierMinimized ? "تكبير" : "تصغير"}
+                  >
+                    {isDossierMinimized ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    onClick={() => onSelectNode(null)}
+                    className="p-1 text-[#7A747D] hover:text-[#B31B24] cursor-pointer"
+                    title="إغلاق"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => setIsDossierMinimized(!isDossierMinimized)}
-                  className="p-1 text-[#7A747D] hover:text-[#1C191E] cursor-pointer"
-                  title={isDossierMinimized ? "Expand" : "Minimize"}
-                >
-                  {isDossierMinimized ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                </button>
-                <button
-                  onClick={() => onSelectNode(null)}
-                  className="p-1 text-[#7A747D] hover:text-[#B31B24] cursor-pointer"
-                  title="Close"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+              {/* Collapsible Content */}
+              {!isDossierMinimized && (
+                <div className="p-2.5 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <span 
+                        className="text-[9px] font-bold px-2 py-0.5 rounded-full text-white"
+                        style={{ backgroundColor: activePinColor }}
+                      >
+                        {activePinMeta?.shortTitle || activeVenue.controllingSyndicate || activeVenue.type}
+                      </span>
+                      {activePinMeta && (
+                        <span className="text-[9px] text-[#7A747D]">
+                          {activePinMeta.label}
+                        </span>
+                      )}
+                    </div>
+                    {activeVenue.status === 'contested' ? (
+                      <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-[#F7D5D8] border border-[#E89EAA] text-[#B31B24] rounded">
+                        قيد النزاع
+                      </span>
+                    ) : (
+                      <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-[#DCFCE7] border border-[#86EFAC] text-[#15803D] rounded">
+                        مسجل ونشط
+                      </span>
+                    )}
+                  </div>
 
-            {/* Collapsible Content */}
-            {!isDossierMinimized && (
-              <div className="p-2.5 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] uppercase tracking-wider text-[#7A747D]">
-                    {activeVenue.type} &bull; {activeVenue.controllingSyndicate}
-                  </span>
-                  {activeVenue.status === 'contested' ? (
-                    <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-[#F7D5D8] border border-[#E89EAA] text-[#B31B24] rounded">
-                      CONTESTED
-                    </span>
-                  ) : (
-                    <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-[#DCFCE7] border border-[#86EFAC] text-[#15803D] rounded">
-                      CONTROLLED
-                    </span>
+                  {/* Note display */}
+                  {activeVenue.notes && (
+                    <div className="p-2 rounded-lg bg-[#FEF9C3]/80 border border-[#FDE047] text-xs text-[#854D0E] space-y-0.5">
+                      <div className="font-bold flex items-center gap-1 text-[10px]">
+                        <FileText className="w-3 h-3" />
+                        <span>ملاحظة الدبوس:</span>
+                      </div>
+                      <p className="text-[10px] leading-relaxed whitespace-pre-wrap">
+                        {activeVenue.notes}
+                      </p>
+                    </div>
                   )}
-                </div>
 
-                <div className="space-y-1 bg-[#FAF8F5] border border-[#EFEAE0] rounded-lg p-2 text-[10px]">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#7A747D] uppercase font-bold">Coordinates:</span>
-                    <span className="font-mono-num font-bold text-[#1C191E]">
-                      {activeVenue.lat.toFixed(4)}°, {activeVenue.lng.toFixed(4)}°
-                    </span>
+                  <div className="space-y-1 bg-[#FAF8F5] border border-[#EFEAE0] rounded-lg p-2 text-[10px]">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[#7A747D] font-bold">الإحداثيات الجغرافية:</span>
+                      <span className="font-mono-num font-bold text-[#1C191E]">
+                        {activeVenue.lat.toFixed(4)}°, {activeVenue.lng.toFixed(4)}°
+                      </span>
+                    </div>
+                    {activePinMeta?.meaning && (
+                      <div className="flex justify-between items-center text-[9px] text-[#7A747D] pt-0.5 border-t border-[#EFEAE0]">
+                        <span>التصنيف الميداني:</span>
+                        <span className="font-medium text-[#1C191E]">{activePinMeta.meaning}</span>
+                      </div>
+                    )}
+                    {activeVenue.addressDetails && (
+                      <div className="flex justify-between items-center text-[9px] text-[#7A747D] pt-0.5 border-t border-[#EFEAE0]">
+                        <span>العنوان / المنطقة:</span>
+                        <span className="font-medium text-[#1C191E] truncate max-w-[150px]">{activeVenue.addressDetails}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#7A747D] uppercase font-bold">Revenue:</span>
-                    <span className="font-mono-num font-bold text-[#15803D]">
-                      +${activeVenue.hourlyIncome.toLocaleString()}/hr
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#7A747D] uppercase font-bold">Garrison:</span>
-                    <span className="font-mono-num font-bold text-[#1C191E]">
-                      {activeVenue.guardCount} / {activeVenue.maxGuards} Guards
-                    </span>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-[#EFEAE0]">
-                  <button
-                    onClick={() => onLaunchOperation(activeVenue, 'arson_bomb')}
-                    className="py-1 px-1.5 rounded bg-[#FAF8F5] hover:bg-[#F7D5D8] border border-[#E5DECE] hover:border-[#E89EAA] text-[#B31B24] text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <Flame className="w-3 h-3" />
-                    <span>Sabotage</span>
-                  </button>
-                  <button
-                    onClick={() => onLaunchOperation(activeVenue, activeVenue.status === 'owned' ? 'reinforce' : 'takeover')}
-                    className="py-1 px-1.5 rounded bg-[#B31B24] hover:bg-[#C7232D] text-white text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Crosshair className="w-3 h-3" />
-                    <span>{activeVenue.status === 'owned' ? 'Reinforce' : 'Takeover'}</span>
-                  </button>
+                  {/* ACTION BUTTONS: Replace Sabotage & Reinforce with Edit & Delete */}
+                  <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-[#EFEAE0]">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditPin(activeVenue)}
+                      className="py-1.5 px-2 rounded-lg bg-[#FAF8F5] hover:bg-[#EFEAE0] border border-[#E5DECE] text-[#1C191E] text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                      title="تعديل تفاصيل الدبوس"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-[#B31B24]" />
+                      <span>تعديل الدبوس</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePin(activeVenue.id)}
+                      className="py-1.5 px-2 rounded-lg bg-[#FAF8F5] hover:bg-[#FEE2E2] border border-[#E5DECE] hover:border-[#FCA5A5] text-[#DC2626] text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                      title="حذف هذا الدبوس نهائياً من الخريطة"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-[#DC2626]" />
+                      <span>حذف الدبوس</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })()}
 
         {/* ============================================================== */}
         {/* 3. SMALL BOTTOM DOCK WITH REQUESTED ROADS & SHOPS TOGGLE ICON  */}
@@ -802,10 +968,20 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
               <span className="hidden md:inline">Coordinates</span>
             </button>
 
+            {/* Add Pin Button */}
+            <button
+              onClick={handleOpenAddPin}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#B31B24] hover:bg-[#C7232D] text-white text-[10px] font-bold shadow-xs transition-colors cursor-pointer"
+              title="إضافة دبوس جديد على الخريطة"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>+ إضافة دبوس</span>
+            </button>
+
             {/* Pick on Map Mode Toggle */}
             <button
               onClick={() => setIsPickMode(!isPickMode)}
-              title="Click on the map to capture location"
+              title="انقر على الخريطة لتحديد إحداثيات موقع وإضافة دبوس"
               className={`p-1 rounded border text-[10px] transition-colors cursor-pointer ${
                 isPickMode 
                   ? 'bg-[#F7D5D8] border-[#E89EAA] text-[#B31B24]' 
@@ -941,86 +1117,21 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* 5. MODAL: ESTABLISH SYNDICATE FRONT AT CLICKED LOCATION        */}
+      {/* 5. MODAL: ADD / EDIT PIN LOCATION AT TARGET LOCATION           */}
       {/* ============================================================== */}
-      {isCreateModalOpen && pickedLocation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-[#FFFFFF] border border-[#E2DACB] rounded-2xl p-5 shadow-2xl text-[#1C191E]" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-[#EFEAE0] pb-2.5 mb-3">
-              <div className="flex items-center gap-2">
-                <PlusCircle className="w-5 h-5 text-[#B31B24]" />
-                <h3 className="font-serif-title font-bold text-sm text-[#1C191E]">Establish Syndicate Front</h3>
-              </div>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-[#7A747D] hover:text-[#1C191E] cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateRacket} className="space-y-3 text-xs">
-              <div>
-                <span className="text-[10px] text-[#7A747D] uppercase font-bold block mb-1">Venue Name</span>
-                <input
-                  type="text"
-                  required
-                  value={newRacketName}
-                  onChange={(e) => setNewRacketName(e.target.value)}
-                  placeholder="e.g. Biscayne Arms Depot"
-                  className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none font-medium text-xs text-[#1C191E]"
-                />
-              </div>
-
-              <div>
-                <span className="text-[10px] text-[#7A747D] uppercase font-bold block mb-1">Racket Type</span>
-                <select
-                  value={newRacketType}
-                  onChange={(e) => setNewRacketType(e.target.value as RacketNode['type'])}
-                  className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none font-medium text-xs text-[#1C191E]"
-                >
-                  <option value="Warehouse">Warehouse / Depot</option>
-                  <option value="Diner">Diner / Restaurant Front</option>
-                  <option value="Chop Shop">Chop Shop (Automotive)</option>
-                  <option value="Casino">Casino / High-Stakes Pit</option>
-                  <option value="Armory">Armory / Munitions Cache</option>
-                  <option value="Shipping Docks">Shipping Docks & Wharf</option>
-                </select>
-              </div>
-
-              <div>
-                <span className="text-[10px] text-[#7A747D] uppercase font-bold block mb-1">Hourly Income ($)</span>
-                <input
-                  type="number"
-                  value={newRacketIncome}
-                  onChange={(e) => setNewRacketIncome(Number(e.target.value))}
-                  className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none font-mono-num font-bold text-xs text-[#1C191E]"
-                />
-              </div>
-
-              <div className="p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] text-[10px]">
-                <span className="text-[#7A747D] block">Exact GPS Coordinates:</span>
-                <span className="font-mono-num font-bold text-[#15803D]">
-                  {pickedLocation.lat.toFixed(6)}°, {pickedLocation.lng.toFixed(6)}°
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="flex-1 py-1.5 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] text-xs font-bold uppercase text-[#554F59] cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-1.5 rounded-lg bg-[#B31B24] hover:bg-[#C7232D] text-white text-xs font-bold uppercase tracking-wider cursor-pointer"
-                >
-                  Deploy Front
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddMapLocationModal
+        isOpen={isAddLocationModalOpen}
+        onClose={() => {
+          setIsAddLocationModalOpen(false);
+          setEditingNode(null);
+        }}
+        onAddLocation={handleAddLocation}
+        onUpdateLocation={handleUpdateLocation}
+        region={region}
+        initialLat={pickedLocation ? pickedLocation.lat : currentTelemetry.lat}
+        initialLng={pickedLocation ? pickedLocation.lng : currentTelemetry.lng}
+        editNode={editingNode}
+      />
 
     </div>
   );

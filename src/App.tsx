@@ -17,7 +17,10 @@ import {
   StrategicOpportunity,
   FinancialTransaction,
   HierarchyProcessNode,
-  RelationshipContact
+  RelationshipContact,
+  ClientKpiCircle,
+  OrganizationHierarchyModel,
+  LadderRoadmapModel
 } from './types/dashboard';
 import { 
   INITIAL_FINANCIALS, 
@@ -31,7 +34,10 @@ import {
   INITIAL_OPPORTUNITIES,
   INITIAL_FINANCIAL_TRANSACTIONS,
   INITIAL_BUSINESS_HIERARCHY,
-  INITIAL_RELATIONSHIPS
+  INITIAL_ORGANIZATION_HIERARCHY,
+  INITIAL_LADDER_ROADMAP,
+  INITIAL_RELATIONSHIPS,
+  INITIAL_CLIENT_KPIS
 } from './data/mockData';
 
 import { LeftIconRail } from './components/Navigation/LeftIconRail';
@@ -78,12 +84,43 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_BUSINESS_HIERARCHY;
   });
 
+  // 4-A. 4 Core Departments Architecture Model
+  const [orgHierarchy, setOrgHierarchy] = useState<OrganizationHierarchyModel>(() => {
+    const saved = localStorage.getItem('don_org_hierarchy');
+    return saved ? JSON.parse(saved) : INITIAL_ORGANIZATION_HIERARCHY;
+  });
+
+  // 4-B. 6-Step Operational Ladder Model
+  const [ladderRoadmap, setLadderRoadmap] = useState<LadderRoadmapModel>(() => {
+    const saved = localStorage.getItem('don_ladder_roadmap');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Verify that steps have the required user titles
+        if (parsed.steps && parsed.steps[0]?.title === 'P&L وهيكل الربحية') {
+          return parsed;
+        }
+      } catch (e) {
+        // Fallback to fresh initial data
+      }
+    }
+    return INITIAL_LADDER_ROADMAP;
+  });
+
+  const [hierarchyInitialView, setHierarchyInitialView] = useState<'departments' | 'ladder'>('departments');
+  const [hierarchySelectedKey, setHierarchySelectedKey] = useState<string | undefined>(undefined);
+
   const [relationships, setRelationships] = useState<RelationshipContact[]>(() => {
     const saved = localStorage.getItem('don_relationships');
     return saved ? JSON.parse(saved) : INITIAL_RELATIONSHIPS;
   });
 
-  // LocalStorage persistence for all 5 systems
+  const [clientKpis, setClientKpis] = useState<ClientKpiCircle[]>(() => {
+    const saved = localStorage.getItem('don_client_kpis');
+    return saved ? JSON.parse(saved) : INITIAL_CLIENT_KPIS;
+  });
+
+  // LocalStorage persistence for all systems
   useEffect(() => {
     localStorage.setItem('don_market_targets', JSON.stringify(marketTargets));
   }, [marketTargets]);
@@ -101,8 +138,20 @@ export default function App() {
   }, [hierarchyNodes]);
 
   useEffect(() => {
+    localStorage.setItem('don_org_hierarchy', JSON.stringify(orgHierarchy));
+  }, [orgHierarchy]);
+
+  useEffect(() => {
+    localStorage.setItem('don_ladder_roadmap', JSON.stringify(ladderRoadmap));
+  }, [ladderRoadmap]);
+
+  useEffect(() => {
     localStorage.setItem('don_relationships', JSON.stringify(relationships));
   }, [relationships]);
+
+  useEffect(() => {
+    localStorage.setItem('don_client_kpis', JSON.stringify(clientKpis));
+  }, [clientKpis]);
 
   // Synchronize target 1 (identified) with contacts count and target 4 with opportunities count if desired
   useEffect(() => {
@@ -358,11 +407,33 @@ export default function App() {
         id: `alert-add-${Date.now()}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         speaker: 'Vincenzo Surveyor',
-        message: `New syndicate front registered at coordinates: [${newRacket.lat.toFixed(4)}, ${newRacket.lng.toFixed(4)}]`,
+        message: `تم تثبيت دبوس جديد على الخريطة: ${newRacket.name} [${newRacket.lat.toFixed(4)}, ${newRacket.lng.toFixed(4)}]`,
         severity: 'intel',
       },
       ...prev.slice(0, 7),
     ]);
+  };
+
+  const handleDeleteRacket = (nodeId: string) => {
+    setRackets((prev) => prev.filter((r) => r.id !== nodeId));
+    if (selectedNode?.id === nodeId) {
+      setSelectedNode(null);
+    }
+    setAlerts((prev) => [
+      {
+        id: `alert-del-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        speaker: 'Operations Command',
+        message: 'تم حذف الدبوس بنجاح من الخريطة التكتيكية',
+        severity: 'intel',
+      },
+      ...prev.slice(0, 7),
+    ]);
+  };
+
+  const handleUpdateRacket = (updatedNode: RacketNode) => {
+    setRackets((prev) => prev.map((r) => (r.id === updatedNode.id ? updatedNode : r)));
+    setSelectedNode(updatedNode);
   };
 
   const currentRegionNodes = rackets.filter((n) => n.region === currentRegion);
@@ -415,9 +486,9 @@ export default function App() {
         <div className="flex-1 flex min-h-0 overflow-hidden">
           
           {/* MAIN CANVAS & BOTTOM STRATEGIC WINDOWS */}
-          <main className="flex-1 flex flex-col min-w-0 p-3 h-full overflow-hidden gap-2.5">
-            {/* WIDE TACTICAL MAP: Takes the old place of the left panel, now directly next to sidebar */}
-            <div className="flex-1 w-full min-h-[320px] flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col min-w-0 p-2 sm:p-2.5 h-full overflow-hidden gap-2">
+            {/* WIDE TACTICAL MAP: Extended canvas height taking old left panel space directly next to sidebar */}
+            <div className="flex-1 w-full min-h-[360px] flex flex-col overflow-hidden">
               <TacticalMapCanvas
                 region={currentRegion}
                 sectors={sectors}
@@ -428,11 +499,13 @@ export default function App() {
                 onLaunchOperation={handleOpenLaunchModal}
                 filterRingCategory={selectedRingFilter}
                 onAddNewRacket={handleAddNewRacket}
+                onDeleteRacket={handleDeleteRacket}
+                onUpdateRacket={handleUpdateRacket}
                 onSelectRegion={handleSelectRegion}
               />
             </div>
 
-            {/* THE 3 STRATEGIC WINDOWS SIDE-BY-SIDE IN THE BOTTOM */}
+            {/* THE 3 STRATEGIC WINDOWS SIDE-BY-SIDE IN THE BOTTOM (COMPACT & SLEEK) */}
             <div className="w-full shrink-0">
               <StrategicRacketsPanel
                 marketTargets={marketTargets}
@@ -449,6 +522,10 @@ export default function App() {
                 onDeleteOpportunity={(oppId) => {
                   setOpportunities(prev => prev.filter(o => o.id !== oppId));
                 }}
+                clientKpis={clientKpis}
+                onUpdateClientKpiCircle={(updated) => {
+                  setClientKpis(prev => prev.map(c => c.id === updated.id ? updated : c));
+                }}
                 financialTransactions={financialTransactions}
                 onAddTransaction={(newTx) => {
                   setFinancialTransactions(prev => [newTx, ...prev]);
@@ -456,6 +533,19 @@ export default function App() {
                 onDeleteTransaction={(txId) => {
                   setFinancialTransactions(prev => prev.filter(t => t.id !== txId));
                 }}
+                selectedLocation={selectedNode}
+                relationships={relationships}
+                onOpenAddContact={() => {
+                  setSelectedRelationship(null);
+                  setIsRelationshipCreateMode(true);
+                  setIsRelationshipModalOpen(true);
+                }}
+                onSelectRelationship={(rel) => {
+                  setSelectedRelationship(rel);
+                  setIsRelationshipCreateMode(false);
+                  setIsRelationshipModalOpen(true);
+                }}
+                onOpenHierarchyTree={() => setIsHierarchyModalOpen(true)}
               />
             </div>
           </main>
@@ -463,8 +553,15 @@ export default function App() {
           {/* RIGHT COLUMN: Executive Hierarchy Tree & Member Profiles */}
           <ExecutiveRosterPanel
             hierarchyNodes={hierarchyNodes}
-            onOpenHierarchyTree={() => setIsHierarchyModalOpen(true)}
+            orgHierarchy={orgHierarchy}
+            ladderRoadmap={ladderRoadmap}
+            onOpenHierarchyTree={(view, key) => {
+              setHierarchyInitialView(view || 'departments');
+              setHierarchySelectedKey(key);
+              setIsHierarchyModalOpen(true);
+            }}
             relationships={relationships}
+            selectedLocation={selectedNode}
             onSelectRelationship={(rel) => {
               setSelectedRelationship(rel);
               setIsRelationshipCreateMode(false);
@@ -492,45 +589,58 @@ export default function App() {
       </div>
 
       {/* MODALS */}
-      <DispatchModal
-        isOpen={isDispatchModalOpen}
-        onClose={() => setIsDispatchModalOpen(false)}
-        targetNode={dispatchTargetNode}
-        roster={roster}
-        initialOperationType={dispatchOpType}
-        preSelectedMember={dispatchPreSelectedMember}
-        onConfirmDispatch={handleConfirmDispatch}
-      />
+      {isDispatchModalOpen && dispatchTargetNode && (
+        <DispatchModal
+          isOpen={isDispatchModalOpen}
+          onClose={() => setIsDispatchModalOpen(false)}
+          targetNode={dispatchTargetNode}
+          roster={roster}
+          initialOperationType={dispatchOpType}
+          preSelectedMember={dispatchPreSelectedMember}
+          onConfirmDispatch={handleConfirmDispatch}
+        />
+      )}
 
-      {/* Window 4 Modal: Organizational Hierarchy for Business Process Architecture */}
-      <HierarchyModal
-        isOpen={isHierarchyModalOpen}
-        onClose={() => setIsHierarchyModalOpen(false)}
-        nodes={hierarchyNodes}
-        onAddNode={(newNode) => setHierarchyNodes(prev => [...prev, newNode])}
-        onUpdateNode={(updatedNode) => setHierarchyNodes(prev => prev.map(n => n.id === updatedNode.id ? updatedNode : n))}
-        onDeleteNode={(nodeId) => setHierarchyNodes(prev => prev.filter(n => n.id !== nodeId))}
-      />
+      {/* Window 4 Modal: Organizational Hierarchy (4 Core Departments & 6-Step Operational Ladder) */}
+      {isHierarchyModalOpen && (
+        <HierarchyModal
+          isOpen={isHierarchyModalOpen}
+          onClose={() => setIsHierarchyModalOpen(false)}
+          nodes={hierarchyNodes}
+          onAddNode={(newNode) => setHierarchyNodes(prev => [...prev, newNode])}
+          onUpdateNode={(updatedNode) => setHierarchyNodes(prev => prev.map(n => n.id === updatedNode.id ? updatedNode : n))}
+          onDeleteNode={(nodeId) => setHierarchyNodes(prev => prev.filter(n => n.id !== nodeId))}
+          orgHierarchy={orgHierarchy}
+          onUpdateOrgHierarchy={setOrgHierarchy}
+          ladderRoadmap={ladderRoadmap}
+          onUpdateLadderRoadmap={setLadderRoadmap}
+          selectedLocation={selectedNode}
+          initialView={hierarchyInitialView}
+          initialSelectedKey={hierarchySelectedKey}
+        />
+      )}
 
       {/* Window 5 Modal: Member Profiles & Business Relationship Dossier */}
-      <MemberModal
-        isOpen={isRelationshipModalOpen}
-        onClose={() => setIsRelationshipModalOpen(false)}
-        contact={selectedRelationship}
-        isCreateMode={isRelationshipCreateMode}
-        onAddContact={(newContact) => {
-          setRelationships(prev => [newContact, ...prev]);
-          setSelectedRelationship(newContact);
-        }}
-        onUpdateContact={(updatedContact) => {
-          setRelationships(prev => prev.map(c => c.id === updatedContact.id ? updatedContact : c));
-          setSelectedRelationship(updatedContact);
-        }}
-        onDeleteContact={(contactId) => {
-          setRelationships(prev => prev.filter(c => c.id !== contactId));
-          setSelectedRelationship(null);
-        }}
-      />
+      {isRelationshipModalOpen && (
+        <MemberModal
+          isOpen={isRelationshipModalOpen}
+          onClose={() => setIsRelationshipModalOpen(false)}
+          contact={selectedRelationship}
+          isCreateMode={isRelationshipCreateMode}
+          onAddContact={(newContact) => {
+            setRelationships(prev => [newContact, ...prev]);
+            setSelectedRelationship(newContact);
+          }}
+          onUpdateContact={(updatedContact) => {
+            setRelationships(prev => prev.map(c => c.id === updatedContact.id ? updatedContact : c));
+            setSelectedRelationship(updatedContact);
+          }}
+          onDeleteContact={(contactId) => {
+            setRelationships(prev => prev.filter(c => c.id !== contactId));
+            setSelectedRelationship(null);
+          }}
+        />
+      )}
 
     </div>
   );

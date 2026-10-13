@@ -1,22 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Plus, 
   X, 
   MapPin, 
-  Users, 
-  UserCheck, 
-  Building2, 
-  Calendar, 
-  Coffee, 
-  Briefcase, 
-  Clock, 
-  Tag, 
-  CheckCircle2, 
-  AlertCircle, 
-  Sparkles,
-  Palette,
-  Flag,
-  FileText
+  Palette, 
+  FileText, 
+  BookmarkPlus, 
+  Check, 
+  Eye, 
+  Camera, 
+  Upload, 
+  Image as ImageIcon,
+  Trash2
 } from 'lucide-react';
 import { 
   RacketNode, 
@@ -26,44 +20,61 @@ import {
   LocationActivityStatus,
   BusinessModelCanvas
 } from '../../types/dashboard';
-import { ICON_REGISTRY, CATEGORY_CONFIG, PRESET_COLORS, renderDynamicIcon } from './MapIconRegistry';
+import { 
+  STRATEGIC_PIN_TYPES, 
+  StrategicPinTypeKey,
+  getPinTypeMeta,
+  getSavedPinColors,
+  saveCustomPinColor,
+  removeSavedPinColor,
+  renderPinIcon,
+  TacticalMapPinGraphic,
+  DEFAULT_PRESET_COLORS
+} from '../StrategyCanvas/TacticalPinRegistry';
 
 interface AddMapLocationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddLocation: (newNode: RacketNode) => void;
+  onUpdateLocation?: (updatedNode: RacketNode) => void;
   region: TerritoryRegion;
   initialLat?: number;
   initialLng?: number;
+  editNode?: RacketNode | null;
 }
 
 export const AddMapLocationModal: React.FC<AddMapLocationModalProps> = ({
   isOpen,
   onClose,
   onAddLocation,
+  onUpdateLocation,
   region,
   initialLat = 31.0409,
   initialLng = 31.3785,
+  editNode = null,
 }) => {
-  if (!isOpen) return null;
+  const isEditing = !!editNode;
 
-  // Form states
+  // 1. Core Pin Type selection (the 7 requested types)
+  const [selectedPinType, setSelectedPinType] = useState<StrategicPinTypeKey>('lead');
+  
+  // 2. Form states
   const [name, setName] = useState('');
-  const [category, setCategory] = useState<MapLocationCategory>('potential-client');
   const [importance, setImportance] = useState<LocationImportance>('high');
   const [activityStatus, setActivityStatus] = useState<LocationActivityStatus>('potential');
-  const [hexColor, setHexColor] = useState('#B31B24');
-  const [customIcon, setCustomIcon] = useState('Building2');
-  const [selectedIconTab, setSelectedIconTab] = useState<'business' | 'events' | 'meetings' | 'work' | 'general'>('business');
+  const [hexColor, setHexColor] = useState('#E11D48');
+  const [savedColors, setSavedColors] = useState<string[]>([]);
+  const [customIcon, setCustomIcon] = useState('UserPlus');
+  const [notes, setNotes] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [lastInteractionDate, setLastInteractionDate] = useState(new Date().toISOString().split('T')[0]);
   const [addressDetails, setAddressDetails] = useState('');
-  const [notes, setNotes] = useState('');
   const [lat, setLat] = useState(initialLat.toFixed(6));
   const [lng, setLng] = useState(initialLng.toFixed(6));
 
   // Business Model Canvas toggle & state (if client / potential client)
-  const isClientType = category === 'potential-client' || category === 'current-client';
-  const [showBmcFields, setShowBmcFields] = useState(isClientType);
+  const isClientType = selectedPinType === 'lead' || selectedPinType === 'client';
+  const [showBmcFields, setShowBmcFields] = useState(false);
   const [bmc, setBmc] = useState<BusinessModelCanvas>({
     keyPartners: '',
     keyActivities: '',
@@ -77,71 +88,194 @@ export const AddMapLocationModal: React.FC<AddMapLocationModalProps> = ({
     notes: '',
   });
 
+  // Populate form on open or when editNode changes
+  useEffect(() => {
+    if (isOpen) {
+      setSavedColors(getSavedPinColors());
+
+      if (editNode) {
+        setName(editNode.name || '');
+        setSelectedPinType((editNode.pinType as StrategicPinTypeKey) || 'lead');
+        setImportance(editNode.locationImportance || 'high');
+        setActivityStatus(editNode.activityStatus || 'potential');
+        setHexColor(editNode.hexColor || '#E11D48');
+        setCustomIcon(editNode.customIcon || 'UserPlus');
+        setNotes(editNode.notes || '');
+        setImageUrl(editNode.imageUrl || '');
+        setLastInteractionDate(editNode.lastInteractionDate || new Date().toISOString().split('T')[0]);
+        setAddressDetails(editNode.addressDetails || '');
+        setLat(editNode.lat ? editNode.lat.toFixed(6) : initialLat.toFixed(6));
+        setLng(editNode.lng ? editNode.lng.toFixed(6) : initialLng.toFixed(6));
+        if (editNode.businessCanvas) {
+          setBmc(editNode.businessCanvas);
+          setShowBmcFields(true);
+        } else {
+          setShowBmcFields(false);
+        }
+      } else {
+        setName('');
+        setSelectedPinType('lead');
+        setImportance('high');
+        setActivityStatus('potential');
+        setHexColor('#E11D48');
+        setCustomIcon('UserPlus');
+        setNotes('');
+        setImageUrl('');
+        setLastInteractionDate(new Date().toISOString().split('T')[0]);
+        setAddressDetails('');
+        setLat(initialLat.toFixed(6));
+        setLng(initialLng.toFixed(6));
+        setShowBmcFields(false);
+      }
+    }
+  }, [isOpen, editNode, initialLat, initialLng]);
+
+  // Sync default color & icon when switching pin type (if creating)
+  const handleSelectPinType = (typeKey: StrategicPinTypeKey) => {
+    setSelectedPinType(typeKey);
+    const meta = getPinTypeMeta(typeKey);
+    if (meta) {
+      // If user hasn't customized or is adding new
+      if (!isEditing) {
+        setHexColor(meta.defaultColor);
+      }
+      setCustomIcon(meta.iconName);
+    }
+  };
+
+  // Save current hex color into saved list
+  const handleSaveCurrentColor = () => {
+    if (!hexColor) return;
+    const updated = saveCustomPinColor(hexColor);
+    setSavedColors(updated);
+  };
+
+  // Delete a saved color
+  const handleDeleteSavedColor = (e: React.MouseEvent, colorToDelete: string) => {
+    e.stopPropagation();
+    const updated = removeSavedPinColor(colorToDelete);
+    setSavedColors(updated);
+  };
+
+  // Handle image upload from file system
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setImageUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
+    // Automatically persist the chosen color for future selections!
+    saveCustomPinColor(hexColor);
+
     const parsedLat = parseFloat(lat);
     const parsedLng = parseFloat(lng);
+    const pinMeta = getPinTypeMeta(selectedPinType);
+
+    if (isEditing && editNode && onUpdateLocation) {
+      const updatedNode: RacketNode = {
+        ...editNode,
+        name: name.trim(),
+        lat: isNaN(parsedLat) ? editNode.lat : parsedLat,
+        lng: isNaN(parsedLng) ? editNode.lng : parsedLng,
+        pinType: selectedPinType,
+        locationCategory: (selectedPinType === 'lead' ? 'potential-client' : selectedPinType === 'client' ? 'current-client' : 'meeting-visit-site') as MapLocationCategory,
+        locationImportance: importance,
+        activityStatus: activityStatus,
+        hexColor: hexColor,
+        customIcon: customIcon || pinMeta?.iconName || 'MapPin',
+        lastInteractionDate: lastInteractionDate,
+        addressDetails: addressDetails.trim(),
+        notes: notes.trim(),
+        imageUrl: imageUrl.trim() || undefined,
+        controllingSyndicate: pinMeta?.shortTitle || editNode.controllingSyndicate,
+        ringCategory: pinMeta?.shortTitle || editNode.ringCategory,
+        strategicBonusText: notes.trim() || pinMeta?.meaning || editNode.strategicBonusText,
+        businessCanvas: isClientType && showBmcFields ? bmc : undefined,
+      };
+
+      onUpdateLocation(updatedNode);
+      onClose();
+      return;
+    }
 
     const newNode: RacketNode = {
-      id: `loc-${Date.now()}`,
+      id: `loc-pin-${Date.now()}`,
       name: name.trim(),
-      type: category === 'cafe-coworking' ? 'Diner' : category === 'conference-event' ? 'Casino' : 'Warehouse',
+      type: selectedPinType === 'bussiness food' ? 'Diner' : selectedPinType === 'event' ? 'Casino' : 'Warehouse',
       region: region,
       x: 50,
       y: 50,
       lat: isNaN(parsedLat) ? initialLat : parsedLat,
       lng: isNaN(parsedLng) ? initialLng : parsedLng,
       status: 'owned',
-      controllingSyndicate: isClientType ? 'عميل مستهدف' : 'شريك / موقع استراتيجي',
+      controllingSyndicate: pinMeta?.shortTitle || 'دبوس تكتيكي',
       hourlyIncome: 0,
       defenseLevel: 100,
       maxDefense: 100,
       guardCount: 0,
       maxGuards: 0,
-      ringCategory: CATEGORY_CONFIG[category].label,
-      strategicBonusText: notes || 'نقطة مسجلة على الخريطة التكتيكية',
+      ringCategory: pinMeta?.shortTitle || 'نقطة ميدانية',
+      strategicBonusText: notes.trim() || pinMeta?.meaning || 'دبوس مسجل على الخريطة',
       underAttack: false,
       smokeEffect: false,
 
       // Custom fields
-      locationCategory: category,
+      pinType: selectedPinType,
+      locationCategory: (selectedPinType === 'lead' ? 'potential-client' : selectedPinType === 'client' ? 'current-client' : 'meeting-visit-site') as MapLocationCategory,
       locationImportance: importance,
       activityStatus: activityStatus,
       hexColor: hexColor,
-      customIcon: customIcon,
+      customIcon: customIcon || pinMeta?.iconName || 'MapPin',
       lastInteractionDate: lastInteractionDate,
       addressDetails: addressDetails.trim(),
       notes: notes.trim(),
-      businessCanvas: isClientType ? bmc : undefined,
+      imageUrl: imageUrl.trim() || undefined,
+      businessCanvas: isClientType && showBmcFields ? bmc : undefined,
     };
 
     onAddLocation(newNode);
     onClose();
   };
 
+  if (!isOpen) return null;
+
+  const currentPinMeta = getPinTypeMeta(selectedPinType);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
       <div 
         className="w-full max-w-2xl bg-[#FFFFFF] border border-[#E2DACB] rounded-2xl shadow-2xl text-[#1C191E] overflow-hidden my-auto max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        dir="rtl"
       >
         {/* Modal Header */}
         <div className="bg-[#FAF8F5] border-b border-[#EFEAE0] px-4 py-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div 
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-xs"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-xs"
               style={{ backgroundColor: hexColor }}
             >
-              {renderDynamicIcon(customIcon, "w-4 h-4")}
+              {renderPinIcon(customIcon, "w-4 h-4 text-white")}
             </div>
             <div>
-              <h3 className="font-serif-title font-bold text-sm text-[#1C191E]">
-                إضافة نقطة / نشاط جديد على الخريطة
+              <h3 className="font-serif-title font-bold text-sm text-[#1C191E] flex items-center gap-1.5">
+                <span>{isEditing ? 'تعديل تفاصيل الدبوس' : 'إضافة دبوس جديد على الخريطة'}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFEAE0] text-[#7A747D]">
+                  شكل دبوس تكتيكي
+                </span>
               </h3>
               <p className="text-[10px] text-[#7A747D]">
-                أتحرك فين، ومين موجود في كل مكان (عملاء، موردون، فعاليات، كافيهات)
+                {isEditing ? 'تعديل الاسم والنوع واللون والصورة والملاحظات' : 'تحديد نوع الدبوس من التصنيفات الـ 7 وحفظ اللون والملاحظات'}
               </p>
             </div>
           </div>
@@ -153,102 +287,294 @@ export const AddMapLocationModal: React.FC<AddMapLocationModalProps> = ({
           </button>
         </div>
 
+        {/* Live Pin Preview Banner */}
+        <div className="bg-gradient-to-r from-[#FAF8F5] via-[#FFFFFF] to-[#FAF8F5] border-b border-[#EFEAE0] px-4 py-2.5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <TacticalMapPinGraphic
+              color={hexColor}
+              iconName={customIcon}
+              size="md"
+              isSelected={true}
+            />
+            <div>
+              <div className="text-[10px] font-bold text-[#7A747D] uppercase">
+                معاينة شكل الدبوس الحية على الخريطة
+              </div>
+              <div className="font-serif-title font-bold text-xs text-[#1C191E]">
+                {name.trim() || 'اسم المكان / الدبوس'}
+              </div>
+              <div className="text-[9px] text-[#554F59] flex items-center gap-1.5">
+                <span className="font-bold" style={{ color: hexColor }}>
+                  {currentPinMeta?.label} ({currentPinMeta?.shortTitle})
+                </span>
+                {notes.trim() && (
+                  <span className="text-[#7A747D] truncate max-w-[220px]">
+                    &bull; 📝 {notes.trim()}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-1 text-[10px] text-[#7A747D] bg-[#FFFFFF] border border-[#E2DACB] rounded-lg px-2.5 py-1">
+            <Eye className="w-3.5 h-3.5 text-[#B31B24]" />
+            <span>سيظهر بهذا الشكل والأيقونة داخله</span>
+          </div>
+        </div>
+
         {/* Form Body - Scrollable */}
         <form onSubmit={handleSubmit} className="p-4 overflow-y-auto custom-scrollbar space-y-4 text-xs">
           
-          {/* 1. Name & Category */}
+          {/* 1. Pin Type Selector: 7 Core Types requested by user */}
+          <div>
+            <label className="text-[11px] text-[#1C191E] font-bold block mb-1.5 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-[#B31B24]" />
+                <span>اختر نوع الدبوس (الأيقونة والوصف الداخلي) *</span>
+              </span>
+              <span className="text-[10px] text-[#7A747D] font-normal">
+                {currentPinMeta?.meaning}
+              </span>
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {STRATEGIC_PIN_TYPES.map((pt) => {
+                const isSelected = selectedPinType === pt.key;
+                return (
+                  <button
+                    key={pt.key}
+                    type="button"
+                    onClick={() => handleSelectPinType(pt.key)}
+                    className={`p-2 rounded-xl border text-right transition-all flex items-start gap-2.5 cursor-pointer ${
+                      isSelected 
+                        ? 'bg-[#FAF8F5] border-[#B31B24] ring-2 ring-[#B31B24]/20 shadow-xs' 
+                        : 'bg-white border-[#E5DECE] hover:border-[#D5CDBC] hover:bg-[#FAF8F5]'
+                    }`}
+                  >
+                    <div 
+                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 shadow-xs"
+                      style={{ 
+                        backgroundColor: isSelected ? hexColor : pt.defaultColor,
+                        color: '#FFFFFF'
+                      }}
+                    >
+                      {renderPinIcon(pt.iconName, "w-4 h-4 text-white")}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-serif-title font-bold text-xs text-[#1C191E] truncate">
+                          {pt.label}
+                        </span>
+                        {isSelected && (
+                          <span className="w-3.5 h-3.5 rounded-full bg-[#B31B24] text-white flex items-center justify-center shrink-0">
+                            <Check className="w-2.5 h-2.5" />
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[9.5px] text-[#7A747D] leading-tight mt-0.5 line-clamp-2">
+                        {pt.meaning}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. Color Selection: Hex Code + Color Picker + Saved Colors Palette */}
+          <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-[#1C191E] font-bold flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-[#B31B24]" />
+                <span>لون الدبوس المخصص (هيكسا كود Hex Code وحفظ الألوان)</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span 
+                  className="w-4 h-4 rounded-full border border-black/20 shadow-xs" 
+                  style={{ backgroundColor: hexColor }} 
+                />
+                <span className="font-mono-num font-bold text-xs text-[#1C191E]">
+                  {hexColor}
+                </span>
+              </div>
+            </div>
+
+            {/* Inputs: Color picker + Hex text input + Save color button */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 bg-white border border-[#E5DECE] rounded-lg p-1">
+                <input 
+                  type="color" 
+                  value={hexColor} 
+                  onChange={(e) => setHexColor(e.target.value)}
+                  className="w-8 h-8 rounded border-0 cursor-pointer bg-transparent p-0"
+                  title="اختر أي لون تريده بحرية من عجلة الألوان"
+                />
+                <input 
+                  type="text" 
+                  value={hexColor} 
+                  onChange={(e) => setHexColor(e.target.value)}
+                  placeholder="#E11D48"
+                  maxLength={7}
+                  className="w-24 p-1 rounded bg-transparent font-mono-num text-xs font-bold text-[#1C191E] uppercase outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveCurrentColor}
+                className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#EFEAE0] border border-[#E5DECE] text-[#1C191E] font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                title="احفظ هذا اللون للمرات القادمة"
+              >
+                <BookmarkPlus className="w-3.5 h-3.5 text-[#B31B24]" />
+                <span>حفظ هذا اللون للمرات القادمة</span>
+              </button>
+            </div>
+
+            {/* Saved Colors & Presets Palette */}
+            <div>
+              <span className="text-[10px] text-[#7A747D] font-bold block mb-1">
+                الألوان المحفوظة والمستخدمة (اضغط لاختيار اللون مباشرة دون إدخال الهيكسا كود):
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap bg-white p-2 rounded-lg border border-[#E5DECE]">
+                {savedColors.map((colorHex) => {
+                  const isCurrent = hexColor.toLowerCase() === colorHex.toLowerCase();
+                  return (
+                    <div 
+                      key={colorHex}
+                      className="relative group"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setHexColor(colorHex)}
+                        style={{ backgroundColor: colorHex }}
+                        title={`لون محفوظ: ${colorHex}`}
+                        className={`w-6 h-6 rounded-full border transition-all cursor-pointer ${
+                          isCurrent 
+                            ? 'border-[#1C191E] scale-110 ring-2 ring-[#B31B24]' 
+                            : 'border-black/15 hover:scale-110'
+                        }`}
+                      />
+                      {!DEFAULT_PRESET_COLORS.includes(colorHex) && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteSavedColor(e, colorHex)}
+                          title="حذف من المحفوظات"
+                          className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 text-white rounded-full text-[8px] hidden group-hover:flex items-center justify-center cursor-pointer shadow-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Photo of the place (صورة تعبيرية لشكل المكان) */}
+          <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] space-y-2">
+            <span className="text-[11px] text-[#1C191E] font-bold flex items-center gap-1.5">
+              <Camera className="w-3.5 h-3.5 text-[#B31B24]" />
+              <span>صورة تعبيرية لشكل المكان (تظهر في أعلى بطاقة الدبوس)</span>
+            </span>
+
+            {imageUrl ? (
+              <div className="relative w-full h-28 rounded-lg overflow-hidden border border-[#E5DECE] bg-black/10 group">
+                <img 
+                  src={imageUrl} 
+                  alt="معاينة صورة المكان" 
+                  className="w-full h-full object-cover" 
+                />
+                <button
+                  type="button"
+                  onClick={() => setImageUrl('')}
+                  className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-1 rounded-md text-[10px] flex items-center gap-1 shadow-md cursor-pointer transition-colors"
+                  title="حذف الصورة"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>حذف الصورة</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label className="p-3 rounded-lg border-2 border-dashed border-[#D5CDBC] hover:border-[#B31B24] bg-white hover:bg-[#FAF8F5] flex flex-col items-center justify-center gap-1 text-center cursor-pointer transition-colors">
+                  <Upload className="w-4 h-4 text-[#B31B24]" />
+                  <span className="font-bold text-[10.5px] text-[#1C191E]">رفع صورة من الجهاز</span>
+                  <span className="text-[8.5px] text-[#7A747D]">اختر صورة تعبر عن شكل المكان</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleImageFileChange} 
+                  />
+                </label>
+
+                <div className="p-2.5 rounded-lg border border-[#E5DECE] bg-white flex flex-col justify-center">
+                  <span className="text-[9.5px] font-bold text-[#7A747D] block mb-1">
+                    أو ضع رابط صورة مباشر (URL):
+                  </span>
+                  <input 
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://example.com/photo.jpg"
+                    className="w-full p-1.5 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[10px] text-[#1C191E] outline-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 4. Name & Related Notes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-[#7A747D] uppercase font-bold block mb-1">
-                اسم المكان / النشاط التجاري *
+                اسم المكان / العميل / الفعالية *
               </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="مثال: شركة النيل للحلول الرقمية / كافيه ديب ريبابليك"
+                placeholder="مثال: شركة الأفق للاستشارات / اجتماع صفقة Q3"
                 className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none font-medium text-xs text-[#1C191E] focus:border-[#B31B24]"
               />
             </div>
 
             <div>
               <label className="text-[10px] text-[#7A747D] uppercase font-bold block mb-1">
-                نوع النقطة *
-              </label>
-              <select
-                value={category}
-                onChange={(e) => {
-                  const val = e.target.value as MapLocationCategory;
-                  setCategory(val);
-                  setHexColor(CATEGORY_CONFIG[val].defaultColor);
-                  if (val === 'potential-client' || val === 'current-client') {
-                    setShowBmcFields(true);
-                  }
-                }}
-                className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none font-medium text-xs text-[#1C191E] focus:border-[#B31B24]"
-              >
-                {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
-                  <option key={key} value={key}>
-                    {config.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* 2. Importance, Status & Last Interaction Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="text-[10px] text-[#7A747D] uppercase font-bold block mb-1">
-                درجة الأهمية
-              </label>
-              <select
-                value={importance}
-                onChange={(e) => setImportance(e.target.value as LocationImportance)}
-                className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none font-medium text-xs text-[#1C191E] focus:border-[#B31B24]"
-              >
-                <option value="high">أهمية قصوى (High Priority)</option>
-                <option value="medium">أهمية متوسطة (Medium)</option>
-                <option value="low">أهمية اعتيادية (Low)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[10px] text-[#7A747D] uppercase font-bold block mb-1">
-                حالة النشاط / المتابعة
-              </label>
-              <select
-                value={activityStatus}
-                onChange={(e) => setActivityStatus(e.target.value as LocationActivityStatus)}
-                className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none font-medium text-xs text-[#1C191E] focus:border-[#B31B24]"
-              >
-                <option value="potential">فرصة محتملة</option>
-                <option value="active">نشط / قيد المتابعة</option>
-                <option value="scheduled">مجدول / محدد له موعد</option>
-                <option value="completed">مكتمل / تم اللقاء</option>
-                <option value="dormant">خامل / مؤجل</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[10px] text-[#7A747D] uppercase font-bold block mb-1">
-                تاريخ آخر تفاعل
+                العنوان / الحي / النطاق الجغرافي
               </label>
               <input
-                type="date"
-                value={lastInteractionDate}
-                onChange={(e) => setLastInteractionDate(e.target.value)}
+                type="text"
+                value={addressDetails}
+                onChange={(e) => setAddressDetails(e.target.value)}
+                placeholder="مثال: شارع المشاية، المنصورة"
                 className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none font-medium text-xs text-[#1C191E] focus:border-[#B31B24]"
               />
             </div>
           </div>
 
-          {/* 3. Coordinates & Location Details */}
+          {/* 5. Prominent Note for the Pin */}
+          <div>
+            <label className="text-[10px] text-[#1C191E] uppercase font-bold block mb-1 flex items-center gap-1">
+              <FileText className="w-3.5 h-3.5 text-[#B31B24]" />
+              <span>ملاحظة متعلقة بالدبوس (تظهر مع تفاصيل المكان والدبوس على الخريطة)</span>
+            </label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="اكتب هنا الملاحظة الخاصة بهذا الدبوس، هدف اللقاء، نقاط الاتفاق أو تفاصيل المتابعة..."
+              className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none text-xs text-[#1C191E] focus:border-[#B31B24]"
+            />
+          </div>
+
+          {/* 6. Coordinates & Priority */}
           <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] space-y-2">
             <span className="text-[10px] text-[#7A747D] uppercase font-bold flex items-center gap-1.5">
-              <MapPin className="w-3 h-3 text-[#B31B24]" />
-              <span>الموقع الجغرافي والإحداثيات الدقيقة</span>
+              <MapPin className="w-3.5 h-3.5 text-[#B31B24]" />
+              <span>إحداثيات الدبوس على الخريطة</span>
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
@@ -274,153 +600,21 @@ export const AddMapLocationModal: React.FC<AddMapLocationModalProps> = ({
                 />
               </div>
               <div>
-                <span className="text-[9px] text-[#7A747D] block mb-0.5">العنوان / المنطقة</span>
-                <input
-                  type="text"
-                  value={addressDetails}
-                  onChange={(e) => setAddressDetails(e.target.value)}
-                  placeholder="شارع المشاية، المنصورة"
+                <span className="text-[9px] text-[#7A747D] block mb-0.5">درجة الأهمية</span>
+                <select
+                  value={importance}
+                  onChange={(e) => setImportance(e.target.value as LocationImportance)}
                   className="w-full p-1.5 rounded bg-white border border-[#E5DECE] outline-none text-xs text-[#1C191E]"
-                />
+                >
+                  <option value="high">أهمية قصوى (High Priority)</option>
+                  <option value="medium">أهمية متوسطة (Medium)</option>
+                  <option value="low">أهمية اعتيادية (Low)</option>
+                </select>
               </div>
             </div>
           </div>
 
-          {/* 4. Custom Hex Color Picker (براح كامل مع هيكسا كود) */}
-          <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-[#7A747D] uppercase font-bold flex items-center gap-1.5">
-                <Palette className="w-3 h-3 text-[#B31B24]" />
-                <span>تحديد لون العلامة (براح كامل بالهيكسا كود Hex Code)</span>
-              </span>
-              <div className="flex items-center gap-2">
-                <span 
-                  className="w-4 h-4 rounded-full border border-black/20 shadow-xs" 
-                  style={{ backgroundColor: hexColor }} 
-                />
-                <span className="font-mono-num font-bold text-xs text-[#1C191E]">
-                  {hexColor}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1">
-                <input 
-                  type="color" 
-                  value={hexColor} 
-                  onChange={(e) => setHexColor(e.target.value)}
-                  className="w-8 h-8 rounded border border-[#E5DECE] cursor-pointer bg-white p-0.5"
-                  title="اختر أي لون تريده بحرية"
-                />
-                <input 
-                  type="text"
-                  value={hexColor}
-                  onChange={(e) => setHexColor(e.target.value)}
-                  placeholder="#B31B24"
-                  maxLength={7}
-                  className="w-24 p-1.5 rounded bg-white border border-[#E5DECE] font-mono-num text-xs font-bold text-[#1C191E] uppercase"
-                />
-              </div>
-
-              {/* Quick Preset Swatches */}
-              <div className="flex items-center gap-1 flex-wrap">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    type="button"
-                    key={c.hex}
-                    onClick={() => setHexColor(c.hex)}
-                    style={{ backgroundColor: c.hex }}
-                    title={c.label}
-                    className={`w-6 h-6 rounded-full border transition-all cursor-pointer ${
-                      hexColor.toLowerCase() === c.hex.toLowerCase() 
-                        ? 'border-[#1C191E] scale-110 ring-2 ring-[#B31B24]' 
-                        : 'border-black/10 hover:scale-105'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 5. Comprehensive Icon Browser by Domain */}
-          <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-[#7A747D] uppercase font-bold flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 text-[#B31B24]" />
-                <span>استعراض واختيار أيقونة النقطة (مشاريع، صناعات، إيفنتات، مقابلات، عمل)</span>
-              </span>
-              <span className="text-[10px] font-bold text-[#B31B24]">
-                المختارة: {customIcon}
-              </span>
-            </div>
-
-            {/* Icon Category Tabs */}
-            <div className="flex items-center gap-1 border-b border-[#E5DECE] pb-1 overflow-x-auto">
-              {(['business', 'events', 'meetings', 'work', 'general'] as const).map((tabKey) => {
-                const labels = {
-                  business: 'المشاريع والصناعات',
-                  events: 'الفعاليات والإيفنتات',
-                  meetings: 'المقابلات والاجتماعات',
-                  work: 'العمل والإنتاجية',
-                  general: 'أماكن عامة وكافيهات'
-                };
-                return (
-                  <button
-                    key={tabKey}
-                    type="button"
-                    onClick={() => setSelectedIconTab(tabKey)}
-                    className={`px-2 py-1 rounded text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
-                      selectedIconTab === tabKey 
-                        ? 'bg-[#B31B24] text-white shadow-xs' 
-                        : 'bg-white hover:bg-[#EFEAE0] text-[#554F59] border border-[#E5DECE]'
-                    }`}
-                  >
-                    {labels[tabKey]}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Icons Grid for active tab */}
-            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5 max-h-36 overflow-y-auto p-1 bg-white rounded-lg border border-[#E5DECE]">
-              {ICON_REGISTRY.filter(item => item.category === selectedIconTab).map((item) => {
-                const isSelected = customIcon === item.name;
-                return (
-                  <button
-                    key={item.name}
-                    type="button"
-                    onClick={() => setCustomIcon(item.name)}
-                    className={`p-1.5 rounded-lg flex flex-col items-center justify-center gap-1 transition-all cursor-pointer text-center ${
-                      isSelected 
-                        ? 'bg-[#F7D5D8] border border-[#E89EAA] text-[#B31B24] ring-1 ring-[#B31B24]' 
-                        : 'hover:bg-[#FAF8F5] border border-transparent hover:border-[#E5DECE] text-[#554F59]'
-                    }`}
-                    title={item.label}
-                  >
-                    {renderDynamicIcon(item.name, "w-4 h-4")}
-                    <span className="text-[8px] truncate w-full font-serif-title">{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 6. Notes & Strategy */}
-          <div>
-            <label className="text-[10px] text-[#7A747D] uppercase font-bold block mb-1">
-              ملاحظات وتفاصيل استراتيجية
-            </label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="سجل أية تفاصيل خاصة بالزيارة أو الهدف من التحرك إلى هنا..."
-              className="w-full p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] outline-none text-xs text-[#1C191E]"
-            />
-          </div>
-
-          {/* 7. Business Model Canvas (For Clients / Potential Clients) */}
+          {/* 7. Optional Business Model Canvas for Clients */}
           {isClientType && (
             <div className="border border-[#E5DECE] rounded-xl overflow-hidden bg-[#FAF8F5]">
               <div 
@@ -430,19 +624,16 @@ export const AddMapLocationModal: React.FC<AddMapLocationModalProps> = ({
                 <div className="flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-[#B31B24]" />
                   <span className="font-serif-title font-bold text-xs text-[#1C191E]">
-                    مخطط نموذج العمل التجاري (Business Model Canvas) للعميل
+                    نموذج العمل التجاري (Business Model Canvas) للعميل (اختياري)
                   </span>
                 </div>
                 <span className="text-[10px] text-[#7A747D] font-bold">
-                  {showBmcFields ? '▲ إخفاء المخطط' : '▼ تعبئة مخطط نموذج العمل'}
+                  {showBmcFields ? '▲ إخفاء المخطط' : '▼ فتح تفاصيل نموذج العمل'}
                 </span>
               </div>
 
               {showBmcFields && (
                 <div className="p-3 bg-white border-t border-[#E5DECE] space-y-2.5">
-                  <p className="text-[9px] text-[#7A747D]">
-                    يظهر هذا المخطط حصرياً عند الضغط على العميل في الخريطة لتحليل وفهم نشاطه وأقسامه بدقة.
-                  </p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     <div>
                       <span className="text-[9px] font-bold text-[#1C191E] block mb-0.5">عروض القيمة (Value Proposition)</span>
@@ -450,8 +641,8 @@ export const AddMapLocationModal: React.FC<AddMapLocationModalProps> = ({
                         rows={2}
                         value={bmc.valuePropositions}
                         onChange={(e) => setBmc({ ...bmc, valuePropositions: e.target.value })}
-                        placeholder="ما القيمة التي يقدمها لزبائنه؟"
-                        className="w-full p-1.5 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[10px]"
+                        placeholder="ما هي القيمة التي يحتاجها العميل؟"
+                        className="w-full p-1.5 rounded border border-[#E5DECE] text-[10px]"
                       />
                     </div>
                     <div>
@@ -460,64 +651,18 @@ export const AddMapLocationModal: React.FC<AddMapLocationModalProps> = ({
                         rows={2}
                         value={bmc.customerSegments}
                         onChange={(e) => setBmc({ ...bmc, customerSegments: e.target.value })}
-                        placeholder="من هم عملاؤه؟"
-                        className="w-full p-1.5 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[10px]"
+                        placeholder="فئة العميل وسوقه المستهدف..."
+                        className="w-full p-1.5 rounded border border-[#E5DECE] text-[10px]"
                       />
                     </div>
                     <div>
-                      <span className="text-[9px] font-bold text-[#1C191E] block mb-0.5">قنوات التواصل والتوزيع (Channels)</span>
+                      <span className="text-[9px] font-bold text-[#1C191E] block mb-0.5">العلاقة مع العميل (Relationships)</span>
                       <textarea
                         rows={2}
-                        value={bmc.channels}
-                        onChange={(e) => setBmc({ ...bmc, channels: e.target.value })}
-                        placeholder="المتاجر، المنصات، نقاط البيع"
-                        className="w-full p-1.5 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[10px]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[9px] font-bold text-[#1C191E] block mb-0.5">الأنشطة والموارد الرئيسية (Activities & Resources)</span>
-                      <textarea
-                        rows={2}
-                        value={bmc.keyActivities}
-                        onChange={(e) => setBmc({ ...bmc, keyActivities: e.target.value })}
-                        placeholder="الإنتاج، التسويق، المنظومة، المواد"
-                        className="w-full p-1.5 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[10px]"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-bold text-[#1C191E] block mb-0.5">الشركاء الرئيسيون (Key Partners)</span>
-                      <textarea
-                        rows={2}
-                        value={bmc.keyPartners}
-                        onChange={(e) => setBmc({ ...bmc, keyPartners: e.target.value })}
-                        placeholder="الموردون، الشركاء اللوجستيون، البنوك"
-                        className="w-full p-1.5 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[10px]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[9px] font-bold text-[#1C191E] block mb-0.5">مصادر الإيرادات (Revenue Streams)</span>
-                      <input
-                        type="text"
-                        value={bmc.revenueStreams}
-                        onChange={(e) => setBmc({ ...bmc, revenueStreams: e.target.value })}
-                        placeholder="مبيعات مباشرة، اشتراكات، صيانة"
-                        className="w-full p-1.5 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[10px]"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-bold text-[#1C191E] block mb-0.5">هيكل التكاليف (Cost Structure)</span>
-                      <input
-                        type="text"
-                        value={bmc.costStructure}
-                        onChange={(e) => setBmc({ ...bmc, costStructure: e.target.value })}
-                        placeholder="إيجارات، مرتبات، توريد خامات"
-                        className="w-full p-1.5 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[10px]"
+                        value={bmc.customerRelationships}
+                        onChange={(e) => setBmc({ ...bmc, customerRelationships: e.target.value })}
+                        placeholder="طبيعة العلاقة والتواصل..."
+                        className="w-full p-1.5 rounded border border-[#E5DECE] text-[10px]"
                       />
                     </div>
                   </div>
@@ -526,25 +671,26 @@ export const AddMapLocationModal: React.FC<AddMapLocationModalProps> = ({
             </div>
           )}
 
-          {/* Submit Actions */}
+          {/* Form Actions */}
           <div className="flex items-center gap-2 pt-2 border-t border-[#EFEAE0]">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] text-xs font-bold uppercase text-[#554F59] hover:bg-[#EFEAE0] transition-colors cursor-pointer"
+              className="py-2 px-4 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] hover:bg-[#EFEAE0] text-xs font-bold text-[#554F59] transition-colors cursor-pointer"
             >
               إلغاء
             </button>
+
             <button
               type="submit"
-              className="flex-1 py-2 rounded-lg bg-[#B31B24] hover:bg-[#C7232D] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              className="flex-1 py-2 px-4 rounded-lg bg-[#B31B24] hover:bg-[#C7232D] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
-              <span>إضافة النقطة إلى الخريطة</span>
+              <Check className="w-4 h-4" />
+              <span>{isEditing ? 'حفظ التعديلات' : 'تأكيد وإضافة الدبوس على الخريطة'}</span>
             </button>
           </div>
-        </form>
 
+        </form>
       </div>
     </div>
   );

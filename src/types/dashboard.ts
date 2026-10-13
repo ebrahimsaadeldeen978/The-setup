@@ -65,6 +65,8 @@ export interface BusinessModelCanvas {
   notes?: string;                // ملاحظات استراتيجية
 }
 
+export type OwnershipStatus = 'owned' | 'contested' | 'rival' | 'neutral';
+
 export interface RacketNode {
   id: string;
   name: string;
@@ -97,6 +99,8 @@ export interface RacketNode {
   lastInteractionDate?: string; // تاريخ آخر تفاعل
   addressDetails?: string; // تفاصيل العنوان أو المنطقة
   notes?: string; // ملاحظات عامة
+  pinType?: string; // نوع الدبوس (lead, client, bussiness food, build the agreement, event, meeting, relationship)
+  imageUrl?: string; // رابط أو كود الصورة التعبيرية لشكل المكان
   businessCanvas?: BusinessModelCanvas; // نموذج العمل التجاري (Business Model Canvas) للعملاء
 }
 
@@ -252,6 +256,90 @@ export interface HierarchyProcessNode {
   updatedAt: string;
 }
 
+// =========================================================
+// 4-A. 4 Core Departments Architecture (الأقسام الأربعة الأساسية)
+// =========================================================
+
+export type DepartmentKey = 'finance' | 'operations' | 'hr' | 'marketing';
+
+export interface DepartmentMetric {
+  id: string;
+  name: string;
+  departmentKey: DepartmentKey;
+  currentValue: number;
+  targetValue: number;
+  percentage: number; // 0 - 100%
+  unit: string;
+  weight?: number;
+  notes?: string;
+  status: 'healthy' | 'warning' | 'critical';
+  updatedAt: string;
+}
+
+export interface DepartmentNode {
+  key: DepartmentKey;
+  name: string;
+  arabicName: string;
+  description: string;
+  iconName: string;
+  color: string;
+  score: number; // calculated percentage %
+  metrics: DepartmentMetric[];
+}
+
+export interface OrganizationHierarchyModel {
+  organizationName: string;
+  overallScore: number; // calculated average of 4 departments
+  departments: DepartmentNode[];
+  lastUpdated: string;
+}
+
+// =========================================================
+// 4-B. 6-Step Operational Ladder (سلّم الـ 6 خطوات التشغيلية)
+// =========================================================
+
+export type LadderMetricSourceType = 'manual' | 'google_sheet' | 'google_form' | 'excel' | 'csv';
+
+export interface LadderMetric {
+  id: string;
+  name: string;
+  stepNumber: number;
+  percentage: number;
+  currentValue?: number;
+  targetValue?: number;
+  unit?: string;
+  notes?: string;
+  isCompleted?: boolean;
+  status?: 'healthy' | 'warning' | 'critical';
+  dataSource?: {
+    type: LadderMetricSourceType;
+    sourceUrlOrPath?: string;
+    sheetName?: string;
+    column?: string;
+    aggregation?: 'sum' | 'avg' | 'max' | 'min' | 'count';
+    filterCondition?: string;
+    lastSynced?: string;
+  };
+}
+
+export interface LadderStep {
+  stepNumber: 1 | 2 | 3 | 4 | 5 | 6;
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  status: 'completed' | 'in_progress' | 'pending' | 'needs_attention';
+  score: number; // 0 - 100%
+  metrics: LadderMetric[];
+}
+
+export interface LadderRoadmapModel {
+  overallProgress: number; // 0 - 100%
+  steps: LadderStep[];
+  currentActiveStep: number;
+  lastUpdated: string;
+}
+
 export type RelationshipRole = 
   | 'potential-client'  // عميل محتمل
   | 'active-client'     // عميل حالي
@@ -288,3 +376,108 @@ export interface RelationshipContact {
   avatarInitials: string;
 }
 
+// =========================================================
+// 6. Client Main KPIs & 3 Donut Circles (Commerce, Influences, Trust)
+// =========================================================
+
+export type ClientKpiCategory = 'commerce' | 'influences' | 'trust';
+
+export type CalculationMethod = 
+  | 'sum'               // جمع الأرقام
+  | 'average'           // المتوسط الحسابي
+  | 'actual_vs_target'  // نسبة الفعلي إلى المستهدف (Actual / Target %)
+  | 'min_max_scale'     // مقياس بين حد أدنى وأقصى
+  | 'threshold'         // عتبة إنجاز
+  | 'custom_ratio'      // معدل / نسبة مخصصة
+  | 'survey_satisfaction' // نسبة رضا أو استبيان
+  | 'compliance_percentage'; // نسبة مطابقة والتزام
+
+export type DataSourceType = 'google_sheet' | 'excel_csv' | 'manual';
+
+export type AggregationFunction = 'sum' | 'average' | 'max' | 'min' | 'count';
+export type ArithmeticOperator = '+' | '-' | '*' | '/';
+export type DisplayOutputFormat = 'percentage' | 'number';
+
+export interface ColumnFilterRule {
+  enabled: boolean;
+  filterColumn?: string;      // مثلاً عمود التصنيف "النوع" أو "الجنس" أو "الفرع"
+  operator: 'equals' | 'contains' | 'not_equals';
+  value: string;              // مثلاً "ذكور" أو "إناث" أو "الرياض"
+}
+
+export interface FormulaColumnTerm {
+  id: string;
+  column: string;                  // اسم أو رمز العمود (مثال: B أو "المبيعات")
+  aggregation: AggregationFunction; // مجموع، متوسط، أقصى، أدنى، عدد
+  filter?: ColumnFilterRule;       // تصفية حسب قيمة معينة
+  parenthesisOpen?: number;        // عدد الأقواس المفتوحة (
+  parenthesisClose?: number;       // عدد الأقواس المغلقة )
+  nextOperator?: ArithmeticOperator | null; // المعامل التالي (+, -, *, /)
+}
+
+export interface AdvancedFormulaConfig {
+  sourceType: 'google_sheet' | 'excel_csv';
+  formulaTitle?: string;
+  filePath?: string;               // مسار الملف من الجهاز
+  fileName?: string;               // اسم الملف المحلي
+  sheetUrl?: string;               // رابط جوجل شيت
+  sheetTabName?: string;           // اسم ورقة العمل / Tab
+  terms: FormulaColumnTerm[];      // حدود المعادلة الحسابية
+  outputFormat: DisplayOutputFormat; // 'percentage' | 'number'
+  numberUnit?: string;             // وحدة القياس في حال اختيار رقم
+  targetValue?: number;
+  targetForNumber?: number;        // المستهدف لتحويل الرقم إلى نسبة للدائرة
+  customFormulaString?: string;    // تعبير المعادلة النصي المقروء
+  humanFormula?: string;
+  calculatedResult?: number;       // الناتج الرقمي المحسوب
+  calculatedRawValue?: number;
+  calculatedPercentage?: number;   // النسبة المئوية الناتجة للدائرة
+  evaluatedPercentage?: number;
+}
+
+export interface SheetIntegrationConfig {
+  url?: string;
+  sheetName?: string;
+  dataColumn?: string;      // مثلاً العمود B أو "المبيعات"
+  targetColumn?: string;    // عمود القيمة المستهدفة
+  range?: string;           // مثلاً B2:B100
+  lastSyncTime?: string;
+  syncStatus?: 'connected' | 'idle' | 'error';
+  sampleValues?: number[];
+  notes?: string;
+  formulaConfig?: AdvancedFormulaConfig;
+}
+
+export interface KpiMetricItem {
+  id: string;
+  category?: ClientKpiCategory;
+  name: string;
+  description: string;
+  unit: string;
+  currentValue: number;
+  targetValue: number;
+  percentage: number; // 0 - 100
+  calculationMethod: CalculationMethod;
+  dataSource: DataSourceType;
+  status?: 'good' | 'warning' | 'danger';
+  sheetConfig?: SheetIntegrationConfig;
+  formulaConfig?: AdvancedFormulaConfig;
+  weight?: number; // default 1
+  updatedAt?: string;
+}
+
+export interface ClientKpiCircle {
+  id: ClientKpiCategory;
+  name: string;            // 'التجارة' | 'المؤثرات' | 'الثقة'
+  englishName: string;     // 'Commerce' | 'Influences' | 'Trust'
+  tagline: string;
+  score: number;           // 0 - 100
+  status: 'good' | 'warning' | 'danger';
+  description: string;
+  metrics: KpiMetricItem[];
+  sheetUrl?: string;
+  sheetName?: string;
+  defaultDataColumn?: string;
+  activeFormulaConfig?: AdvancedFormulaConfig;
+  lastSyncedAt?: string;
+}

@@ -25,9 +25,14 @@ import {
   FinancialTransaction,
   FinancialCategory,
   OpportunityStage,
-  BusinessModelCanvas
+  BusinessModelCanvas,
+  ClientKpiCircle,
+  ClientKpiCategory
 } from '../../types/dashboard';
+import { INITIAL_CLIENT_KPIS } from '../../data/mockData';
 import { BusinessModelCanvasPanel } from './BusinessModelCanvasPanel';
+import { ClientMainKpisCard } from './ClientMainKpisCard';
+import { ClientKpiDetailModal } from '../Modals/ClientKpiDetailModal';
 
 interface StrategicRacketsPanelProps {
   // 1. Ring Completion: Market Targets
@@ -40,7 +45,9 @@ interface StrategicRacketsPanelProps {
   onUpdateOpportunity: (opp: StrategicOpportunity) => void;
   onDeleteOpportunity: (oppId: string) => void;
 
-  // 3. Revenue Breakdown: Financials
+  // 3. Client Main KPIs & Financials
+  clientKpis?: ClientKpiCircle[];
+  onUpdateClientKpiCircle?: (circle: ClientKpiCircle) => void;
   financialTransactions: FinancialTransaction[];
   onAddTransaction: (tx: FinancialTransaction) => void;
   onDeleteTransaction: (txId: string) => void;
@@ -64,6 +71,8 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
   financialTransactions,
   onAddTransaction,
   onDeleteTransaction,
+  clientKpis,
+  onUpdateClientKpiCircle,
   selectedLocation = null,
   onUpdateBusinessCanvas,
   relationships = [],
@@ -71,6 +80,31 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
   onSelectRelationship,
   onOpenHierarchyTree,
 }) => {
+  // Client Main KPIs 3 Circles State
+  const [localKpis, setLocalKpis] = useState<ClientKpiCircle[]>(clientKpis || INITIAL_CLIENT_KPIS);
+  const [isKpiModalOpen, setIsKpiModalOpen] = useState(false);
+  const [activeKpiCategory, setActiveKpiCategory] = useState<ClientKpiCategory>('commerce');
+  const [card3ViewMode, setCard3ViewMode] = useState<'kpis' | 'bmc'>('kpis');
+
+  // Keep localKpis in sync with parent if prop updates
+  React.useEffect(() => {
+    if (clientKpis && clientKpis.length > 0) {
+      setLocalKpis(clientKpis);
+    }
+  }, [clientKpis]);
+
+  const handleOpenCircleDetail = (category: ClientKpiCategory) => {
+    setActiveKpiCategory(category);
+    setIsKpiModalOpen(true);
+  };
+
+  const handleUpdateCircle = (updated: ClientKpiCircle) => {
+    setLocalKpis(prev => prev.map(c => c.id === updated.id ? updated : c));
+    if (onUpdateClientKpiCircle) {
+      onUpdateClientKpiCircle(updated);
+    }
+  };
+
   // Modal states for modal interactions
   const [activeModal, setActiveModal] = useState<'ring' | 'perks' | 'revenue' | null>(null);
 
@@ -247,25 +281,25 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
 
   return (
     <>
-      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-2">
         
-        {/* 1. CARD 1: RING COMPLETION (Market Acquisition Pipeline Targets) */}
+        {/* 1. CARD 1: RING COMPLETION (Market Acquisition Pipeline Targets) - COMPACT */}
         <div 
           onClick={() => setActiveModal('ring')}
-          className="command-card p-3 flex flex-col justify-between h-full cursor-pointer hover:border-[#B31B24] transition-all group"
+          className="command-card p-2 sm:p-2.5 flex flex-col justify-between h-full cursor-pointer hover:border-[#B31B24] transition-all group"
           title="انقر لتعديل وإدارة أهداف السوق"
         >
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <h2 className="font-serif-title text-xs font-bold uppercase tracking-wider text-[#1C191E] flex items-center gap-1.5">
+              <h2 className="font-serif-title text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#1C191E] flex items-center gap-1">
                 <span>RING COMPLETION</span>
-                <span className="text-[10px] text-[#7A747D] font-normal normal-case font-sans">(أهداف السوق)</span>
+                <span className="text-[9px] text-[#7A747D] font-normal normal-case font-sans">(أهداف السوق)</span>
               </h2>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <span className="font-mono-num font-bold text-xs text-[#1C191E]">
                   {totalActual}/{totalTargeted}
                 </span>
-                <Edit3 className="w-3 h-3 text-[#7A747D] group-hover:text-[#B31B24] transition-colors" />
+                <Edit3 className="w-2.5 h-2.5 text-[#7A747D] group-hover:text-[#B31B24] transition-colors" />
               </div>
             </div>
 
@@ -278,79 +312,79 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
             </div>
 
             {/* 4 Square Status Boxes in a row */}
-            <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+            <div className="grid grid-cols-4 gap-1 pt-0.5">
               {/* Box 1: Identified */}
-              <div className="p-1.5 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
-                <div className="p-1 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#B31B24] mb-0.5">
-                  <Target className="w-3 h-3" />
+              <div className="p-1 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
+                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#B31B24] mb-0.5">
+                  <Target className="w-2.5 h-2.5" />
                 </div>
-                <span className="text-[8px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox1.title}>
+                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox1.title}>
                   مستهدفة
                 </span>
-                <div className="w-full bg-[#E5DECE] h-1 rounded-full my-0.5 overflow-hidden">
+                <div className="w-full bg-[#E5DECE] h-0.5 rounded-full my-0.5 overflow-hidden">
                   <div 
                     className="bg-[#B31B24] h-full" 
                     style={{ width: `${box1Pct}%` }}
                   />
                 </div>
-                <span className="font-mono-num text-[9px] font-bold text-[#1C191E]">
+                <span className="font-mono-num text-[8.5px] font-bold text-[#1C191E]">
                   {targetBox1.actualCount}/{targetBox1.targetCount}
                 </span>
               </div>
 
               {/* Box 2: Contacted */}
-              <div className="p-1.5 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
-                <div className="p-1 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#D97706] mb-0.5">
-                  <Clock className="w-3 h-3" />
+              <div className="p-1 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
+                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#D97706] mb-0.5">
+                  <Clock className="w-2.5 h-2.5" />
                 </div>
-                <span className="text-[8px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox2.title}>
+                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox2.title}>
                   تواصل
                 </span>
-                <div className="w-full bg-[#E5DECE] h-1 rounded-full my-0.5 overflow-hidden">
+                <div className="w-full bg-[#E5DECE] h-0.5 rounded-full my-0.5 overflow-hidden">
                   <div 
                     className="bg-[#D97706] h-full" 
                     style={{ width: `${box2Pct}%` }}
                   />
                 </div>
-                <span className="font-mono-num text-[9px] font-bold text-[#1C191E]">
+                <span className="font-mono-num text-[8.5px] font-bold text-[#1C191E]">
                   {targetBox2.actualCount}/{targetBox2.targetCount}
                 </span>
               </div>
 
               {/* Box 3: Meetings */}
-              <div className="p-1.5 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
-                <div className="p-1 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#B31B24] mb-0.5">
-                  <Layers className="w-3 h-3" />
+              <div className="p-1 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
+                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#B31B24] mb-0.5">
+                  <Layers className="w-2.5 h-2.5" />
                 </div>
-                <span className="text-[8px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox3.title}>
+                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox3.title}>
                   زيارات
                 </span>
-                <div className="w-full bg-[#E5DECE] h-1 rounded-full my-0.5 overflow-hidden">
+                <div className="w-full bg-[#E5DECE] h-0.5 rounded-full my-0.5 overflow-hidden">
                   <div 
                     className="bg-[#B31B24] h-full" 
                     style={{ width: `${box3Pct}%` }}
                   />
                 </div>
-                <span className="font-mono-num text-[9px] font-bold text-[#1C191E]">
+                <span className="font-mono-num text-[8.5px] font-bold text-[#1C191E]">
                   {targetBox3.actualCount}/{targetBox3.targetCount}
                 </span>
               </div>
 
               {/* Box 4: Opportunities */}
-              <div className="p-1.5 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
-                <div className="p-1 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#15803D] mb-0.5">
-                  <CheckCircle2 className="w-3 h-3" />
+              <div className="p-1 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
+                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#15803D] mb-0.5">
+                  <CheckCircle2 className="w-2.5 h-2.5" />
                 </div>
-                <span className="text-[8px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox4.title}>
+                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox4.title}>
                   فرص
                 </span>
-                <div className="w-full bg-[#E5DECE] h-1 rounded-full my-0.5 overflow-hidden">
+                <div className="w-full bg-[#E5DECE] h-0.5 rounded-full my-0.5 overflow-hidden">
                   <div 
                     className="bg-[#15803D] h-full" 
                     style={{ width: `${box4Pct}%` }}
                   />
                 </div>
-                <span className="font-mono-num text-[9px] font-bold text-[#1C191E]">
+                <span className="font-mono-num text-[8.5px] font-bold text-[#1C191E]">
                   {targetBox4.actualCount}/{targetBox4.targetCount}
                 </span>
               </div>
@@ -358,44 +392,44 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="pt-2 mt-2 border-t border-[#EFEAE0] flex items-center justify-between text-[10px] text-[#7A747D]">
+          <div className="pt-1 mt-1 border-t border-[#EFEAE0] flex items-center justify-between text-[9px] text-[#7A747D]">
             <span>معدل إنجاز خطة السوق</span>
             <span className="font-bold text-[#1C191E]">{ringCompletionPct}% محقق</span>
           </div>
         </div>
 
-        {/* 2. CARD 2: STRATEGIC PERKS (Strategic Opportunities & Initiatives) */}
+        {/* 2. CARD 2: STRATEGIC PERKS (Strategic Opportunities & Initiatives) - COMPACT */}
         <div 
           onClick={() => setActiveModal('perks')}
-          className="command-card p-3 flex flex-col justify-between h-full cursor-pointer hover:border-[#B31B24] transition-all group"
+          className="command-card p-2 sm:p-2.5 flex flex-col justify-between h-full cursor-pointer hover:border-[#B31B24] transition-all group"
           title="انقر لفتح واستعراض وإضافة الفرص التجارية والمبادرات"
         >
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <h2 className="font-serif-title text-xs font-bold uppercase tracking-wider text-[#1C191E] flex items-center gap-1.5">
+              <h2 className="font-serif-title text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#1C191E] flex items-center gap-1">
                 <span>STRATEGIC PERKS</span>
-                <span className="text-[10px] text-[#7A747D] font-normal normal-case font-sans">(الفرص التجارية)</span>
+                <span className="text-[9px] text-[#7A747D] font-normal normal-case font-sans">(الفرص التجارية)</span>
               </h2>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <span className="font-mono-num font-bold text-xs text-[#1C191E]">
                   {totalOppsCount}
                 </span>
-                <Plus className="w-3 h-3 text-[#7A747D] group-hover:text-[#B31B24] transition-colors" />
+                <Plus className="w-2.5 h-2.5 text-[#7A747D] group-hover:text-[#B31B24] transition-colors" />
               </div>
             </div>
 
             {/* Dynamic Perks list or Empty State */}
             {activeOpportunities.length === 0 ? (
-              <div className="p-3.5 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] text-center flex flex-col items-center justify-center py-4 my-1">
-                <Lightbulb className="w-5 h-5 text-[#B31B24] mb-1.5 opacity-60" />
-                <span className="font-serif-title text-xs font-bold text-[#1C191E]">لا توجد فرص مسجلة بعد</span>
-                <span className="text-[10px] text-[#7A747D] mt-0.5">
-                  انقر هنا لإضافة فرصة تجارية جديدة، مشكلة للتحقق، أو مشروع مقترح
+              <div className="p-2 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] text-center flex flex-col items-center justify-center py-2.5 my-0.5">
+                <Lightbulb className="w-4 h-4 text-[#B31B24] mb-1 opacity-60" />
+                <span className="font-serif-title text-[11px] font-bold text-[#1C191E]">لا توجد فرص مسجلة بعد</span>
+                <span className="text-[9px] text-[#7A747D] mt-0.5">
+                  انقر هنا لإضافة فرصة تجارية جديدة
                 </span>
               </div>
             ) : (
-              <div className="space-y-1.5">
-                {activeOpportunities.map((opp) => {
+              <div className="space-y-1">
+                {activeOpportunities.slice(0, 2).map((opp) => {
                   const badge = getStageBadge(opp.stage);
                   return (
                     <div 
@@ -405,22 +439,22 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
                         setSelectedOpp(opp);
                         setActiveModal('perks');
                       }}
-                      className="p-1.5 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex items-center justify-between hover:border-[#B31B24] transition-all cursor-pointer"
+                      className="p-1 sm:p-1.5 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex items-center justify-between hover:border-[#B31B24] transition-all cursor-pointer"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-6 h-6 rounded bg-[#FFFFFF] border border-[#E5DECE] flex items-center justify-center text-[#B31B24] shrink-0">
-                          <Lightbulb className="w-3 h-3" />
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-5 h-5 rounded bg-[#FFFFFF] border border-[#E5DECE] flex items-center justify-center text-[#B31B24] shrink-0">
+                          <Lightbulb className="w-2.5 h-2.5" />
                         </div>
                         <div className="min-w-0">
-                          <span className="text-[11px] font-bold text-[#1C191E] block font-serif-title leading-tight truncate">
+                          <span className="text-[10px] font-bold text-[#1C191E] block font-serif-title leading-tight truncate">
                             {opp.title}
                           </span>
-                          <span className="text-[8px] text-[#7A747D] block truncate">
-                            {opp.organization} &bull; {opp.nextStep || 'لا توجد خطوات تالية'}
+                          <span className="text-[7.5px] text-[#7A747D] block truncate">
+                            {opp.organization}
                           </span>
                         </div>
                       </div>
-                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${badge.color}`}>
+                      <span className={`text-[7px] font-bold px-1 py-0.2 rounded border shrink-0 ${badge.color}`}>
                         {badge.label}
                       </span>
                     </div>
@@ -431,138 +465,75 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
           </div>
 
           {/* Footer info */}
-          <div className="pt-2 mt-2 border-t border-[#EFEAE0] flex items-center justify-between text-[10px] text-[#7A747D]">
-            <span>الفرص والمبادرات النشطة</span>
+          <div className="pt-1 mt-1 border-t border-[#EFEAE0] flex items-center justify-between text-[9px] text-[#7A747D]">
+            <span>الفرص النشطة</span>
             <span className="font-bold text-[#15803D]">{totalOppsCount} مسجلة</span>
           </div>
         </div>
 
-        {/* 3. CARD 3: BUSINESS MODEL CANVAS (when client is selected) OR REVENUE BREAKDOWN (when general) */}
+        {/* 3. CARD 3: CLIENT MAIN KPIS (3 DONUT CHARTS) OR BUSINESS MODEL CANVAS */}
         {selectedLocation && (selectedLocation.locationCategory === 'potential-client' || selectedLocation.locationCategory === 'current-client' || selectedLocation.controllingSyndicate === 'عميل مستهدف') ? (
-          <BusinessModelCanvasPanel
-            selectedLocation={selectedLocation}
-            onUpdateCanvas={(locationId, updatedCanvas) => {
-              if (onUpdateBusinessCanvas) {
-                onUpdateBusinessCanvas(locationId, updatedCanvas);
-              }
-            }}
-            relationships={relationships}
-            onOpenAddContact={onOpenAddContact || (() => {})}
-            onSelectRelationship={onSelectRelationship || (() => {})}
-            onOpenHierarchyTree={onOpenHierarchyTree || (() => {})}
-          />
-        ) : (
-          <div 
-            onClick={() => setActiveModal('revenue')}
-            className="command-card p-3 flex flex-col justify-between h-full cursor-pointer hover:border-[#B31B24] transition-all group"
-            title="انقر لفتح سجل الإيرادات والتكاليف وتسجيل معاملة جديدة"
-          >
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="font-serif-title text-xs font-bold uppercase tracking-wider text-[#1C191E] flex items-center gap-1.5">
-                  <span>REVENUE BREAKDOWN</span>
-                  <span className="text-[10px] text-[#7A747D] font-normal normal-case font-sans">(التقدم المالي)</span>
-                </h2>
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] uppercase font-bold text-[#7A747D]">
-                    {financialTransactions.length > 0 ? `${financialTransactions.length} سجل` : 'لا بيانات'}
-                  </span>
-                  <Plus className="w-3 h-3 text-[#7A747D] group-hover:text-[#B31B24] transition-colors" />
-                </div>
+          <div className="flex flex-col h-full bg-[#FCFAF6] border border-[#E5DECE] rounded-xl overflow-hidden shadow-2xs">
+            {/* Top Switcher Tab between Client Main KPIs & BMC */}
+            <div className="flex items-center justify-between px-2.5 py-1.5 bg-[#FAF8F5] border-b border-[#EFEAE0] text-[10px]">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCard3ViewMode('kpis')}
+                  className={`px-2 py-0.5 rounded font-bold transition-all ${
+                    card3ViewMode === 'kpis'
+                      ? 'bg-[#1C191E] text-white shadow-xs'
+                      : 'text-[#7A747D] hover:text-[#1C191E] hover:bg-[#EFEAE0]'
+                  }`}
+                >
+                  CLIENT MAIN KPIS
+                </button>
+                <button
+                  onClick={() => setCard3ViewMode('bmc')}
+                  className={`px-2 py-0.5 rounded font-bold transition-all ${
+                    card3ViewMode === 'bmc'
+                      ? 'bg-[#8A181F] text-white shadow-xs'
+                      : 'text-[#7A747D] hover:text-[#8A181F] hover:bg-[#EFEAE0]'
+                  }`}
+                >
+                  MODEL CANVAS
+                </button>
               </div>
 
-              {/* Donut Chart + Legend */}
-              <div className="flex items-center justify-between gap-2">
-                {/* Radial Donut Graphic */}
-                <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <circle
-                      cx="18"
-                      cy="18"
-                      r="14"
-                      fill="none"
-                      stroke="#EFEBE2"
-                      strokeWidth="4"
-                    />
-                    {totalRevenue > 0 && (
-                      <>
-                        <circle
-                          cx="18"
-                          cy="18"
-                          r="14"
-                          fill="none"
-                          stroke="#D97706"
-                          strokeWidth="4"
-                          strokeDasharray={`${analysisPct + consultingPct} 100`}
-                          strokeDashoffset="0"
-                        />
-                        <circle
-                          cx="18"
-                          cy="18"
-                          r="14"
-                          fill="none"
-                          stroke="#B31B24"
-                          strokeWidth="4.5"
-                          strokeDasharray={`${analysisPct} 100`}
-                          strokeDashoffset="0"
-                          strokeLinecap="round"
-                        />
-                      </>
-                    )}
-                  </svg>
-
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="font-mono-num text-[11px] font-extrabold text-[#1C191E] leading-tight">
-                      ${totalRevenue > 999 ? `${(totalRevenue / 1000).toFixed(1)}k` : totalRevenue}
-                    </span>
-                    <span className="text-[7px] uppercase tracking-wider text-[#7A747D]">
-                      إيرادات
-                    </span>
-                  </div>
-                </div>
-
-                {/* Legend with Arabized categories */}
-                <div className="space-y-0.5 text-[9px] flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[#554F59]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#B31B24]" />
-                      تحليل بيانات
-                    </span>
-                    <span className="font-mono-num font-bold text-[#1C191E]">{analysisPct}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[#554F59]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#D97706]" />
-                      استشارات
-                    </span>
-                    <span className="font-mono-num font-bold text-[#1C191E]">{consultingPct}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[#554F59]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#15803D]" />
-                      تنفيذ أنظمة
-                    </span>
-                    <span className="font-mono-num font-bold text-[#1C191E]">{systemsPct}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[#554F59]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#9A94A0]" />
-                      أخرى
-                    </span>
-                    <span className="font-mono-num font-bold text-[#1C191E]">{otherPct}%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer info showing True Net Income vs Costs */}
-            <div className="pt-2 mt-2 border-t border-[#EFEAE0] flex items-center justify-between text-[10px] text-[#7A747D]">
-              <span>صافي العائد (الربح)</span>
-              <span className={`font-bold font-mono-num ${netIncome >= 0 ? 'text-[#15803D]' : 'text-[#DC2626]'}`}>
-                {financialTransactions.length > 0 ? `${netIncome >= 0 ? '+' : ''}$${netIncome.toLocaleString()}` : 'لا توجد بيانات مسجلة'}
+              <span className="text-[9px] text-[#554F59] font-bold truncate max-w-[130px]">
+                {selectedLocation.name}
               </span>
             </div>
+
+            <div className="flex-1 min-h-0">
+              {card3ViewMode === 'kpis' ? (
+                <ClientMainKpisCard
+                  circles={localKpis}
+                  onOpenCircleDetail={handleOpenCircleDetail}
+                  selectedLocationName={selectedLocation.name}
+                  isClientSelected={true}
+                />
+              ) : (
+                <BusinessModelCanvasPanel
+                  selectedLocation={selectedLocation}
+                  onUpdateCanvas={(locationId, updatedCanvas) => {
+                    if (onUpdateBusinessCanvas) {
+                      onUpdateBusinessCanvas(locationId, updatedCanvas);
+                    }
+                  }}
+                  relationships={relationships}
+                  onOpenAddContact={onOpenAddContact || (() => {})}
+                  onSelectRelationship={onSelectRelationship || (() => {})}
+                  onOpenHierarchyTree={onOpenHierarchyTree || (() => {})}
+                />
+              )}
+            </div>
           </div>
+        ) : (
+          <ClientMainKpisCard
+            circles={localKpis}
+            onOpenCircleDetail={handleOpenCircleDetail}
+            isClientSelected={false}
+          />
         )}
 
       </div>
@@ -1168,6 +1139,21 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 4: Client Main KPIs 3 Circles & Sheet Sync Manager */}
+      {/* ========================================================= */}
+      {isKpiModalOpen && (
+        <ClientKpiDetailModal
+          isOpen={isKpiModalOpen}
+          onClose={() => setIsKpiModalOpen(false)}
+          circles={localKpis}
+          activeCategoryId={activeKpiCategory}
+          onSelectCategory={(cat) => setActiveKpiCategory(cat)}
+          onUpdateCircle={handleUpdateCircle}
+          selectedLocationName={selectedLocation?.name}
+        />
       )}
     </>
   );
