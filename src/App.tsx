@@ -20,7 +20,8 @@ import {
   RelationshipContact,
   ClientKpiCircle,
   OrganizationHierarchyModel,
-  LadderRoadmapModel
+  LadderRoadmapModel,
+  VaultRecord
 } from './types/dashboard';
 import { 
   INITIAL_FINANCIALS, 
@@ -37,7 +38,8 @@ import {
   INITIAL_ORGANIZATION_HIERARCHY,
   INITIAL_LADDER_ROADMAP,
   INITIAL_RELATIONSHIPS,
-  INITIAL_CLIENT_KPIS
+  INITIAL_CLIENT_KPIS,
+  INITIAL_VAULT_RECORDS
 } from './data/mockData';
 
 import { LeftIconRail } from './components/Navigation/LeftIconRail';
@@ -48,6 +50,10 @@ import { TacticalMapCanvas } from './components/StrategyCanvas/TacticalMapCanvas
 import { DispatchModal } from './components/Modals/DispatchModal';
 import { HierarchyModal } from './components/Modals/HierarchyModal';
 import { MemberModal } from './components/Modals/MemberModal';
+import { safeSetItem, safeGetItem, cleanupBloatedStorage } from './utils/storageUtils';
+
+// Run cleanup once on script initialization to purge any existing oversized payloads
+cleanupBloatedStorage();
 
 export default function App() {
   // Navigation & Region (Mansoura as first default sector)
@@ -65,34 +71,34 @@ export default function App() {
 
   // Career, Market Opportunities & Real Ledger State
   const [marketTargets, setMarketTargets] = useState<MarketAcquisitionTarget[]>(() => {
-    const saved = localStorage.getItem('don_market_targets');
+    const saved = safeGetItem('don_market_targets');
     return saved ? JSON.parse(saved) : INITIAL_MARKET_TARGETS;
   });
 
   const [opportunities, setOpportunities] = useState<StrategicOpportunity[]>(() => {
-    const saved = localStorage.getItem('don_strategic_opportunities');
+    const saved = safeGetItem('don_strategic_opportunities');
     return saved ? JSON.parse(saved) : INITIAL_OPPORTUNITIES;
   });
 
   const [financialTransactions, setFinancialTransactions] = useState<FinancialTransaction[]>(() => {
-    const saved = localStorage.getItem('don_financial_transactions');
+    const saved = safeGetItem('don_financial_transactions');
     return saved ? JSON.parse(saved) : INITIAL_FINANCIAL_TRANSACTIONS;
   });
 
   const [hierarchyNodes, setHierarchyNodes] = useState<HierarchyProcessNode[]>(() => {
-    const saved = localStorage.getItem('don_business_hierarchy');
+    const saved = safeGetItem('don_business_hierarchy');
     return saved ? JSON.parse(saved) : INITIAL_BUSINESS_HIERARCHY;
   });
 
   // 4-A. 4 Core Departments Architecture Model
   const [orgHierarchy, setOrgHierarchy] = useState<OrganizationHierarchyModel>(() => {
-    const saved = localStorage.getItem('don_org_hierarchy');
+    const saved = safeGetItem('don_org_hierarchy');
     return saved ? JSON.parse(saved) : INITIAL_ORGANIZATION_HIERARCHY;
   });
 
   // 4-B. 6-Step Operational Ladder Model
   const [ladderRoadmap, setLadderRoadmap] = useState<LadderRoadmapModel>(() => {
-    const saved = localStorage.getItem('don_ladder_roadmap');
+    const saved = safeGetItem('don_ladder_roadmap');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -111,46 +117,56 @@ export default function App() {
   const [hierarchySelectedKey, setHierarchySelectedKey] = useState<string | undefined>(undefined);
 
   const [relationships, setRelationships] = useState<RelationshipContact[]>(() => {
-    const saved = localStorage.getItem('don_relationships');
+    const saved = safeGetItem('don_relationships');
     return saved ? JSON.parse(saved) : INITIAL_RELATIONSHIPS;
   });
 
   const [clientKpis, setClientKpis] = useState<ClientKpiCircle[]>(() => {
-    const saved = localStorage.getItem('don_client_kpis');
+    const saved = safeGetItem('don_client_kpis');
     return saved ? JSON.parse(saved) : INITIAL_CLIENT_KPIS;
   });
 
-  // LocalStorage persistence for all systems
+  // Vault (الخزينة) State: 4 Uncapped Indicators with Full Chronological History
+  const [vaultRecords, setVaultRecords] = useState<VaultRecord[]>(() => {
+    const saved = safeGetItem('don_vault_records');
+    return saved ? JSON.parse(saved) : INITIAL_VAULT_RECORDS;
+  });
+
+  // Safe LocalStorage persistence for all systems
   useEffect(() => {
-    localStorage.setItem('don_market_targets', JSON.stringify(marketTargets));
+    safeSetItem('don_vault_records', JSON.stringify(vaultRecords));
+  }, [vaultRecords]);
+
+  useEffect(() => {
+    safeSetItem('don_market_targets', JSON.stringify(marketTargets));
   }, [marketTargets]);
 
   useEffect(() => {
-    localStorage.setItem('don_strategic_opportunities', JSON.stringify(opportunities));
+    safeSetItem('don_strategic_opportunities', JSON.stringify(opportunities));
   }, [opportunities]);
 
   useEffect(() => {
-    localStorage.setItem('don_financial_transactions', JSON.stringify(financialTransactions));
+    safeSetItem('don_financial_transactions', JSON.stringify(financialTransactions));
   }, [financialTransactions]);
 
   useEffect(() => {
-    localStorage.setItem('don_business_hierarchy', JSON.stringify(hierarchyNodes));
+    safeSetItem('don_business_hierarchy', JSON.stringify(hierarchyNodes));
   }, [hierarchyNodes]);
 
   useEffect(() => {
-    localStorage.setItem('don_org_hierarchy', JSON.stringify(orgHierarchy));
+    safeSetItem('don_org_hierarchy', JSON.stringify(orgHierarchy));
   }, [orgHierarchy]);
 
   useEffect(() => {
-    localStorage.setItem('don_ladder_roadmap', JSON.stringify(ladderRoadmap));
+    safeSetItem('don_ladder_roadmap', JSON.stringify(ladderRoadmap));
   }, [ladderRoadmap]);
 
   useEffect(() => {
-    localStorage.setItem('don_relationships', JSON.stringify(relationships));
+    safeSetItem('don_relationships', JSON.stringify(relationships));
   }, [relationships]);
 
   useEffect(() => {
-    localStorage.setItem('don_client_kpis', JSON.stringify(clientKpis));
+    safeSetItem('don_client_kpis', JSON.stringify(clientKpis));
   }, [clientKpis]);
 
   // Synchronize target 1 (identified) with contacts count and target 4 with opportunities count if desired
@@ -508,6 +524,16 @@ export default function App() {
             {/* THE 3 STRATEGIC WINDOWS SIDE-BY-SIDE IN THE BOTTOM (COMPACT & SLEEK) */}
             <div className="w-full shrink-0">
               <StrategicRacketsPanel
+                vaultRecords={vaultRecords}
+                onAddVaultRecord={(record) => {
+                  setVaultRecords(prev => [record, ...prev]);
+                }}
+                onUpdateVaultRecord={(record) => {
+                  setVaultRecords(prev => prev.map(r => r.id === record.id ? record : r));
+                }}
+                onDeleteVaultRecord={(recordId) => {
+                  setVaultRecords(prev => prev.filter(r => r.id !== recordId));
+                }}
                 marketTargets={marketTargets}
                 onUpdateMarketTarget={(updatedTarget) => {
                   setMarketTargets(prev => prev.map(t => t.id === updatedTarget.id ? updatedTarget : t));
@@ -581,6 +607,12 @@ export default function App() {
                 setIsRelationshipCreateMode(true);
               }
               setIsRelationshipModalOpen(true);
+            }}
+            onDeleteRelationship={(contactId) => {
+              setRelationships(prev => prev.filter(c => c.id !== contactId));
+              if (selectedRelationship?.id === contactId) {
+                setSelectedRelationship(null);
+              }
             }}
           />
 

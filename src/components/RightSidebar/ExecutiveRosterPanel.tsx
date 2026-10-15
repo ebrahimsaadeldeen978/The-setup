@@ -22,7 +22,8 @@ import {
   TrendingUp,
   GitBranch,
   ArrowUpRight,
-  ListOrdered
+  ListOrdered,
+  Trash2
 } from 'lucide-react';
 import { 
   HierarchyProcessNode, 
@@ -46,6 +47,7 @@ interface ExecutiveRosterPanelProps {
   onSelectRelationship: (contact: RelationshipContact) => void;
   onOpenAddRelationship: () => void;
   onOpenAllRelationships: () => void;
+  onDeleteRelationship?: (contactId: string) => void;
 
   // Selected Location from Map
   selectedLocation?: import('../../types/dashboard').RacketNode | null;
@@ -60,6 +62,7 @@ export const ExecutiveRosterPanel: React.FC<ExecutiveRosterPanelProps> = ({
   onSelectRelationship,
   onOpenAddRelationship,
   onOpenAllRelationships,
+  onDeleteRelationship,
   selectedLocation = null,
 }) => {
   // Internal view switcher for Card 1: 'departments' (4 Core Departments) or 'ladder' (6-Step Ladder)
@@ -79,7 +82,7 @@ export const ExecutiveRosterPanel: React.FC<ExecutiveRosterPanelProps> = ({
     ? relationships.filter(r => 
         (r.locationId && r.locationId === selectedLocation.id) ||
         (r.organization && selectedLocation.name && r.organization.trim().toLowerCase().includes(selectedLocation.name.trim().toLowerCase())) ||
-        (selectedLocation.name && r.name && selectedLocation.name.trim().toLowerCase().includes(r.organization.trim().toLowerCase()))
+        (r.organization && selectedLocation.name && selectedLocation.name.trim().toLowerCase().includes(r.organization.trim().toLowerCase()))
       )
     : relationships;
 
@@ -524,29 +527,48 @@ export const ExecutiveRosterPanel: React.FC<ExecutiveRosterPanelProps> = ({
                 className="p-2 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] hover:border-[#B31B24] transition-all cursor-pointer flex items-center justify-between group"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-[#FFFFFF] border border-[#E0D8C8] flex items-center justify-center font-serif-title font-bold text-xs text-[#B31B24] shadow-xs shrink-0">
-                    {contact.avatarInitials || contact.name.slice(0, 2)}
+                  <div className="w-8 h-8 rounded-full bg-[#FFFFFF] border border-[#E0D8C8] overflow-hidden flex items-center justify-center font-serif-title font-bold text-xs text-[#B31B24] shadow-xs shrink-0">
+                    {contact.photoUrl ? (
+                      <img src={contact.photoUrl} alt={contact.name} className="w-full h-full object-cover" />
+                    ) : (
+                      contact.avatarInitials || contact.name.slice(0, 2)
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-xs text-[#1C191E] group-hover:text-[#B31B24] transition-colors truncate">
                         {contact.name}
                       </span>
-                      <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-[#EFEAE0] text-[#554F59] shrink-0">
-                        {getRoleLabel(contact.roleType)}
-                      </span>
+                      {contact.trustLevel && (
+                        <span className="text-[7.5px] font-bold px-1.5 py-0.2 rounded bg-[#DCFCE7] text-[#15803D] shrink-0">
+                          {contact.trustLevel}
+                        </span>
+                      )}
                     </div>
                     <div className="text-[9px] text-[#7A747D] truncate">
-                      {contact.organization || contact.nextStep || 'تواصل مهني'}
+                      {contact.jobTitle || contact.organization || 'تواصل مهني'}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0 text-[#9A94A0] group-hover:text-[#B31B24] transition-colors">
+                <div className="flex items-center gap-1 shrink-0 text-[#9A94A0] transition-colors">
                   <span className="text-[8.5px] font-mono-num text-[#7A747D]">
                     {contact.lastContactDate || 'اليوم'}
                   </span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  {onDeleteRelationship && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteRelationship(contact.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[#7A747D] hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                      title="حذف جهة الاتصال"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                  <ChevronRight className="w-3.5 h-3.5 group-hover:text-[#B31B24]" />
                 </div>
               </div>
             ))

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { 
   APIProvider, 
@@ -42,6 +42,7 @@ import {
   renderPinIcon 
 } from './TacticalPinRegistry';
 import { AddMapLocationModal } from '../Modals/AddMapLocationModal';
+import { compressImage } from '../../utils/storageUtils';
 
 export type MapThemeMode = 'parchment' | 'noir' | 'sepia' | 'satellite';
 
@@ -208,47 +209,57 @@ const TacticalOverlayMarker: React.FC<TacticalOverlayMarkerProps> = ({ position,
 const MapController: React.FC<{
   center: { lat: number; lng: number };
   zoom: number;
-}> = ({ center, zoom }) => {
+  onMapReady?: (map: google.maps.Map) => void;
+}> = ({ center, zoom, onMapReady }) => {
   const map = useMap();
+
+  useEffect(() => {
+    if (map && onMapReady) {
+      onMapReady(map);
+    }
+  }, [map, onMapReady]);
 
   useEffect(() => {
     if (!map) return;
     map.panTo(center);
     map.setZoom(zoom);
-  }, [map, center, zoom]);
+  }, [map, center.lat, center.lng, zoom]);
 
   return null;
 };
 
 // Custom Zoom Controls
 const MapViewControls: React.FC<{
+  onZoomIn: () => void;
+  onZoomOut: () => void;
   onReset: () => void;
-}> = ({ onReset }) => {
-  const map = useMap();
-
+}> = ({ onZoomIn, onZoomOut, onReset }) => {
   return (
     <div className="flex flex-col gap-1 bg-[#FFFFFF]/95 backdrop-blur-xs border border-[#E2DACB] rounded-lg p-1 shadow-md">
       <button
-        onClick={() => map && map.setZoom((map.getZoom() || 12) + 1)}
-        title="Zoom In"
-        className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F4F1EA] text-[#1C191E] transition-colors cursor-pointer"
+        type="button"
+        onClick={onZoomIn}
+        title="تكبير الخريطة (Zoom In)"
+        className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F4F1EA] text-[#1C191E] hover:text-[#B31B24] transition-colors cursor-pointer"
       >
-        <ZoomIn className="w-3.5 h-3.5" />
+        <ZoomIn className="w-4 h-4" />
       </button>
       <button
-        onClick={() => map && map.setZoom((map.getZoom() || 12) - 1)}
-        title="Zoom Out"
-        className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F4F1EA] text-[#1C191E] transition-colors cursor-pointer"
+        type="button"
+        onClick={onZoomOut}
+        title="تصغير الخريطة (Zoom Out)"
+        className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F4F1EA] text-[#1C191E] hover:text-[#B31B24] transition-colors cursor-pointer"
       >
-        <ZoomOut className="w-3.5 h-3.5" />
+        <ZoomOut className="w-4 h-4" />
       </button>
       <div className="h-px bg-[#EFEAE0] my-0.5" />
       <button
+        type="button"
         onClick={onReset}
-        title="Reset Camera to Region"
+        title="إعادة التموضع إلى المركز (Reset Camera)"
         className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F4F1EA] text-[#7A747D] hover:text-[#B31B24] transition-colors cursor-pointer"
       >
-        <RotateCcw className="w-3.5 h-3.5" />
+        <RotateCcw className="w-4 h-4" />
       </button>
     </div>
   );
@@ -335,6 +346,13 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     zoom: 12,
   });
 
+  // Google Map Instance Reference
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+
+  const handleMapReady = useCallback((map: google.maps.Map) => {
+    mapInstanceRef.current = map;
+  }, []);
+
   // Sync region changes
   useEffect(() => {
     const preset = getRegionCenter(region);
@@ -345,6 +363,64 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     setCurrentTelemetry(preset);
   }, [region, getRegionCenter]);
 
+  // Focus and Zoom onto a pin and its surroundings (level 16)
+  const focusOnPin = useCallback((targetNode: { lat: number; lng: number }, targetZoom = 16) => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.panTo({ lat: targetNode.lat, lng: targetNode.lng });
+      mapInstanceRef.current.setZoom(targetZoom);
+    }
+    setMapCenter({ lat: targetNode.lat, lng: targetNode.lng });
+    setMapZoom(targetZoom);
+    setCurrentTelemetry(prev => ({
+      ...prev,
+      lat: targetNode.lat,
+      lng: targetNode.lng,
+      zoom: targetZoom,
+    }));
+  }, []);
+
+  // Zoom In Handler
+  const handleZoomIn = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const z = mapInstanceRef.current.getZoom() || mapZoom || 13;
+      mapInstanceRef.current.setZoom(z + 1);
+      setMapZoom(z + 1);
+    } else {
+      setMapZoom(prev => prev + 1);
+    }
+  }, [mapZoom]);
+
+  // Zoom Out Handler
+  const handleZoomOut = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const z = mapInstanceRef.current.getZoom() || mapZoom || 13;
+      const nextZ = Math.max(1, z - 1);
+      mapInstanceRef.current.setZoom(nextZ);
+      setMapZoom(nextZ);
+    } else {
+      setMapZoom(prev => Math.max(1, prev - 1));
+    }
+  }, [mapZoom]);
+
+  // Reset Camera to Region Center
+  const handleResetCamera = useCallback(() => {
+    const preset = getRegionCenter(region);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.panTo({ lat: preset.lat, lng: preset.lng });
+      mapInstanceRef.current.setZoom(preset.zoom);
+    }
+    setMapCenter({ lat: preset.lat, lng: preset.lng });
+    setMapZoom(preset.zoom);
+    setCurrentTelemetry(preset);
+  }, [region, getRegionCenter]);
+
+  // When selectedNode changes, auto focus and zoom onto its surroundings
+  useEffect(() => {
+    if (selectedNode) {
+      focusOnPin(selectedNode, 16);
+    }
+  }, [selectedNode?.id, focusOnPin]);
+
   // Active venue
   const activeVenue = selectedNode || nodes[0] || null;
 
@@ -354,9 +430,7 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     const lat = parseFloat(inputLat);
     const lng = parseFloat(inputLng);
     if (!isNaN(lat) && !isNaN(lng)) {
-      setMapCenter({ lat, lng });
-      setMapZoom(13);
-      setCurrentTelemetry({ lat, lng, zoom: 13 });
+      focusOnPin({ lat, lng }, 16);
       setIsCoordinatesModalOpen(false);
     }
   };
@@ -404,41 +478,46 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     }
   };
 
-  // Add new Pin Location to Map
+  // Add new Pin Location to Map & focus/zoom in on its surroundings
   const handleAddLocation = (newNode: RacketNode) => {
     if (onAddNewRacket) {
       onAddNewRacket(newNode);
     }
+    onSelectNode(newNode);
+    focusOnPin(newNode, 16);
     setEditingNode(null);
     setIsAddLocationModalOpen(false);
     setIsPickMode(false);
     setPickedLocation(null);
   };
 
-  // Update existing Pin Location
+  // Update existing Pin Location & focus/zoom on it
   const handleUpdateLocation = (updatedNode: RacketNode) => {
     if (onUpdateRacket) {
       onUpdateRacket(updatedNode);
     }
+    onSelectNode(updatedNode);
+    focusOnPin(updatedNode, 16);
     setEditingNode(null);
     setIsAddLocationModalOpen(false);
   };
 
-  // Handle direct image upload on the active venue card
-  const handleActiveVenueImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle direct image upload on the active venue card with automatic compression
+  const handleActiveVenueImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !activeVenue || !onUpdateRacket) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
+    try {
+      const compressed = await compressImage(file, 600, 400, 0.75);
+      if (compressed) {
         const updated: RacketNode = {
           ...activeVenue,
-          imageUrl: reader.result,
+          imageUrl: compressed,
         };
         onUpdateRacket(updated);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Failed to compress venue image:', err);
+    }
   };
 
   // Handle image removal on active venue card
@@ -545,7 +624,7 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
             }}
           >
             {/* Smooth Fly Controller */}
-            <MapController center={mapCenter} zoom={mapZoom} />
+            <MapController center={mapCenter} zoom={mapZoom} onMapReady={handleMapReady} />
 
             {/* RENDER EXCLUSIVELY TACTICAL PINS (ALL MAP ITEMS ARE IN PIN SHAPE) */}
             {nodes.map((node) => {
@@ -570,6 +649,7 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectNode(node);
+                      focusOnPin(node, 16);
                       setIsDossierMinimized(false);
                     }}
                     onMouseEnter={() => setHoveredNode(node)}
@@ -714,15 +794,11 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
 
         {/* Floating Custom Zoom Controls (Top Left) */}
         <div className="absolute top-3 left-3 z-20">
-          <APIProvider apiKey={apiKey}>
-            <MapViewControls
-              onReset={() => {
-                const preset = getRegionCenter(region);
-                setMapCenter({ lat: preset.lat, lng: preset.lng });
-                setMapZoom(preset.zoom);
-              }}
-            />
-          </APIProvider>
+          <MapViewControls
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onReset={handleResetCamera}
+          />
         </div>
 
         {/* Captured Location Quick Bar */}

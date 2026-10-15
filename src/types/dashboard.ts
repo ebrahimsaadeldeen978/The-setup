@@ -181,6 +181,31 @@ export interface EmpireFinancials {
 // Professional Journey & Opportunity System Types
 // ==========================================
 
+// ==========================================
+// Vault (الخزينة) System Types - 4 Open Counters with Chronological Archive
+// ==========================================
+
+export type VaultCategory = 
+  | 'relationships'     // العلاقات: العلاقات التي جمعناها من الشغل بجميع أنواعها
+  | 'target_leads'      // العملاء المستهدفين: كام عميل مستهدف متاح للعرض عليه قيمتنا
+  | 'current_clients'   // العملاء الحاليين: عملاء مستهدفين تم تحويلهم لبداية العمل معهم في نموذج مبدئي أو مجاني
+  | 'contracted';       // المتعاقدين: جربونا مرة وحابين يشتغلوا معانا تاني سواء في نفس المشروع أو آخر فتعاقدوا معانا
+
+export interface VaultRecord {
+  id: string;
+  category: VaultCategory;
+  title: string;              // اسم الشخص أو الجهة أو العميل أو الشريك
+  entityType?: string;        // مثلاً: شركة، مؤسسة، استشاري، قطاع خاص
+  date: string;               // تاريخ حدوث العملية (متى حدث / متى جمعنا / متى بدأنا / متى تعاقدنا)
+  time?: string;              // التوقيت اختياري
+  description: string;        // تفاصيل ما حدث بالتحديد
+  engagementModel?: string;   // نموذج التعامل (نموذج مبدئي، نموذج مجاني، تعاقد رسمي، علاقة مهنية)
+  projectOrDomain?: string;   // المشروع أو مجال النشاط
+  outcomeOrValue?: string;    // النتيجة أو الأثر
+  notes?: string;             // ملاحظات إضافية
+  createdAt: string;          // وقت الإنشاء الفعلي
+}
+
 export type MarketGoalStage = 'identified' | 'contacted' | 'meetings' | 'opportunities';
 
 export interface MarketAcquisitionTarget {
@@ -357,23 +382,50 @@ export type RelationshipStatus =
 
 export interface RelationshipContact {
   id: string;
-  name: string;
-  organization: string; // الجهة أو النشاط
-  roleType: RelationshipRole;
-  relationshipStatus: RelationshipStatus;
+  
+  // صورة الشخص
+  photoUrl?: string; // رابط أو مسار صورة الشخص
+
+  // تفاصيل الشخص
+  name: string; // الاسم
+  age?: number | string; // السن
+  religion?: string; // الدين
+  jobTitle?: string; // الوظيفة
+  experience?: string; // الخبرة
+  address?: string; // العنوان
+
+  // طرق التواصل
+  phone1?: string; // رقم هاتف 1
+  phone2?: string; // رقم هاتف 2
+  whatsapp?: string; // واتساب
+  facebook?: string; // فيس بوك
+  instagram?: string; // انستجرام
+  linkedin?: string; // لينكد إن
+  xTwitter?: string; // إكس
+
+  // تفاصيل العلاقة
+  trustLevel?: string | number; // درجة الثقة (مثلاً: 95%، عالية جداً، 5/5)
+  strengths?: string; // نقاط القوة
+  weaknesses?: string; // نقاط الضعف
+  potentialBenefit?: string; // الفائدة الممكنة
+
+  // حقول تكميلية وتوافقية
+  organization?: string; // الجهة أو النشاط
+  roleType?: RelationshipRole;
+  relationshipStatus?: RelationshipStatus;
   locationId?: string; // معرف النقطة أو النشاط التجاري المرتبط بالخريطة
   projectOrDeal?: string;
-  lastContactDate: string; // تاريخ آخر تواصل
-  lastContactResult: string; // نتيجة آخر تواصل
-  nextStep: string; // الخطوة التالية المطلوبة
-  nextStepDate: string; // موعدها
+  lastContactDate?: string; // تاريخ آخر تواصل
+  lastContactResult?: string; // نتيجة آخر تواصل
+  nextStep?: string; // الخطوة التالية المطلوبة
+  nextStepDate?: string; // موعدها
   interactionsLog?: {
     id: string;
     date: string;
     notes: string;
     outcome: string;
   }[];
-  avatarInitials: string;
+  avatarInitials?: string;
 }
 
 // =========================================================

@@ -8,7 +8,9 @@ import {
   TerritoryRegion,
   CitySector,
   ClientKpiCircle,
-  KpiMetricItem
+  KpiMetricItem,
+  VaultRecord,
+  RelationshipContact
 } from '../types/dashboard';
 
 export const INITIAL_CITY_SECTORS: CitySector[] = [
@@ -217,6 +219,163 @@ export const INITIAL_CONSIGLIERE_ALERTS: ConsigliereAlert[] = [
     speaker: 'Tom Hagen Consigliere',
     message: 'غرفة العمليات جاهزة. لا توجد مقرات مضافة حالياً. انقر على الخريطة أو استخدم الإحداثيات لتسجيل مواقع ومقرات جديدة.',
     severity: 'intel'
+  }
+];
+
+// ==========================================
+// VAULT (الخزينة) INITIAL RECORDS
+// 4 Uncapped Indicators with Full Chronological History
+// ==========================================
+export const INITIAL_VAULT_RECORDS: VaultRecord[] = [
+  // 1. العلاقات (Relationships) - العلاقات التي جمعناها من الشغل بجميع أنواعها
+  {
+    id: 'vault-rel-1',
+    category: 'relationships',
+    title: 'د. وليد الشمري (مستشار تحول رقمي وحوكمة)',
+    entityType: 'استشاري وخبير قطاعي',
+    date: '2026-01-15',
+    description: 'تم بناء العلاقة والتعارف خلال مؤتمر التحول التقني، وتبادل الرؤى وتأسيس قناة تواصل مهنية دائمة.',
+    engagementModel: 'علاقة شبكة أعمال مهنية',
+    projectOrDomain: 'استشارات التحول الرقمي والحوكمة',
+    outcomeOrValue: 'مرجع استشاري وشريك موثوق لتبادل المعرفة والفرص',
+    notes: 'تم اللقاء وجهاً لوجه ومتابعة الاتصال شهرياً.',
+    createdAt: '2026-01-15T10:00:00Z',
+  },
+  {
+    id: 'vault-rel-2',
+    category: 'relationships',
+    title: 'م. سارة المهيدب (مديرة شراكات استراتيجية)',
+    entityType: 'قطاع خاص / شركات كبرى',
+    date: '2026-02-02',
+    description: 'علاقة عمل نشأت أثناء ورشة عمل تطوير الأنظمة التقنية المشتركة، وتنسيق التعاون المؤسسي.',
+    engagementModel: 'شراكة معرفية وشبكة علاقات عمل',
+    projectOrDomain: 'تطوير الأعمال والشراكات',
+    outcomeOrValue: 'تسهيل الوصول لصناع القرار في قطاعات حيوية',
+    notes: 'تمت إضافتها لشبكة العلاقات المباشرة بعد لقاء عمل رسمي.',
+    createdAt: '2026-02-02T14:30:00Z',
+  },
+  {
+    id: 'vault-rel-3',
+    category: 'relationships',
+    title: 'أ. فهد التميمي (رئيس قطاع العمليات واللوجستيات)',
+    entityType: 'إدارة عليا / تنفيذي',
+    date: '2026-02-20',
+    description: 'تم تأسيس العلاقة عبر لقاء غداء عمل وبحث آفاق التعاون في تحسين العمليات وتقليل الهدر التشغيلي.',
+    engagementModel: 'علاقة عمل وتخطيط تنفيذي',
+    projectOrDomain: 'إدارة سلاسل الإمداد والعمليات',
+    outcomeOrValue: 'تفاهم مبدئي على مشاركة أفضل الممارسات التشغيلية',
+    notes: 'علاقة موثوقة تم تعزيزها خلال أكثر من جلسة نقاشية.',
+    createdAt: '2026-02-20T12:00:00Z',
+  },
+  {
+    id: 'vault-rel-4',
+    category: 'relationships',
+    title: 'د. ريم القحطاني (عضو مجلس أعمال ومستثمر)',
+    entityType: 'استثمار وشبكات أعمال',
+    date: '2026-03-05',
+    description: 'علاقة مهنية مرموقة تأسست في ملتقى الاستثمار السنوي لتوسيع شبكة التحالفات والمشاريع المستقبلية.',
+    engagementModel: 'شبكة علاقات ومستشار استراتيجي',
+    projectOrDomain: 'توسيع الاستثمارات وتطوير التحالفات',
+    outcomeOrValue: 'فتح قنوات تعارف مع قيادات استثمارية',
+    notes: 'تواصل مستمر لبحث الفرص المشتركة.',
+    createdAt: '2026-03-05T17:15:00Z',
+  },
+
+  // 2. العملاء المستهدفين (Target Leads) - كام عميل مستهدف متاح للعرض عليه قيمتنا
+  {
+    id: 'vault-tgt-1',
+    category: 'target_leads',
+    title: 'مجموعة اليمامة القابضة',
+    entityType: 'مجموعة تجارية قابضة',
+    date: '2026-02-10',
+    description: 'تم تحديد المجموعة كعميل مستهدف رئيسي، وتمت صياغة مقترح القيمة لعرضه على فريق القيادة التنفيذية.',
+    engagementModel: 'عرض القيمة المقترحة (Value Pitch)',
+    projectOrDomain: 'رقمنة التقارير التشغيلية والمالية الموحدة',
+    outcomeOrValue: 'فرصة مؤهلة متاح تقديم عرض القيمة لها فوراً',
+    notes: 'الملف التعريفي جاهز بالكامل للعرض على العميل.',
+    createdAt: '2026-02-10T09:15:00Z',
+  },
+  {
+    id: 'vault-tgt-2',
+    category: 'target_leads',
+    title: 'شركة أفق اللوجستية المتقدمة',
+    entityType: 'خدمات لوجستية وتوزيع',
+    date: '2026-02-18',
+    description: 'تم استهداف الشركة بعد رصد فجوة في تتبع العمليات الميدانية، ومتاح حالياً لتقديم عرض القيمة لحل المشكلة.',
+    engagementModel: 'عرض حلول تحسين العمليات وسلاسل الإمداد',
+    projectOrDomain: 'تتبع العمليات وإدارة الأسطول والمستودعات',
+    outcomeOrValue: 'متاح ومحدد للاجتماع التقديمي الأول',
+    notes: 'التواصل المبدئي مع مسؤول التنسيق تم بنجاح لتحديد موعد.',
+    createdAt: '2026-02-18T11:00:00Z',
+  },
+  {
+    id: 'vault-tgt-3',
+    category: 'target_leads',
+    title: 'مستشفيات رعاية المستقبل التخصصية',
+    entityType: 'رعاية صحية وطبية',
+    date: '2026-03-01',
+    description: 'تمت دراسة متطلبات كفاءة تجربة المراجعين وتحضير مقترح القيمة لعرضه على مجلس الإدارة.',
+    engagementModel: 'عرض أتمتة دورة العمل التشغيلية',
+    projectOrDomain: 'أنظمة إدارة المراجعين والجودة الطبية',
+    outcomeOrValue: 'ملف القيمة المضافة جاهز للعرض والمناقشة',
+    notes: 'تم حجز موعد مبدئي لعرض القيمة.',
+    createdAt: '2026-03-01T14:20:00Z',
+  },
+
+  // 3. العملاء الحاليين (Current Clients) - عملاء مستهدفين تم تحويلهم لبداية العمل معهم في نموذج مبدئي أو مجاني
+  {
+    id: 'vault-cur-1',
+    category: 'current_clients',
+    title: 'شركة مدار للتقنية المالية (Madar FinTech)',
+    entityType: 'تقنية مالية وابتكار',
+    date: '2026-02-25',
+    description: 'عميل مستهدف تم تحويله وبدأنا معه العمل الفعلي عبر نموذج مبدئي (PoC) لإثبات كفاءة لوحات التحكم وتحليل البيانات.',
+    engagementModel: 'نموذج مبدئي تجريبي مدفوع (PoC)',
+    projectOrDomain: 'تحليل البيانات ومؤشرات الأداء المالي اللحظي',
+    outcomeOrValue: 'بدء أول تعامل فعلي واختبار الحلول بنجاح على أرض الواقع',
+    notes: 'مرحلة التجربة الأولى جارية وتسير وفق المعايير المتفق عليها.',
+    createdAt: '2026-02-25T15:00:00Z',
+  },
+  {
+    id: 'vault-cur-2',
+    category: 'current_clients',
+    title: 'سلسلة مطاعم الذواقة الراقية',
+    entityType: 'ضيافة وأغذية وتجزئة',
+    date: '2026-03-08',
+    description: 'تم تحويل العميل المستهدف لبدء العمل معه من خلال نموذج عمل مجاني أول (Free Pilot) لتتبع تكاليف وهدر الفروع.',
+    engagementModel: 'نموذج مجاني تمهيدي (Free Initial Engagement)',
+    projectOrDomain: 'هندسة التكاليف وتقارير الفروع التشغيلية',
+    outcomeOrValue: 'بناء الثقة المتبادلة وإثبات الأثر العملي المباشر بدون مخاطرة',
+    notes: 'النتائج الأولية للنموذج المجاني أظهرت تقليصاً ملحوظاً في زمن إعداد التقارير.',
+    createdAt: '2026-03-08T13:45:00Z',
+  },
+
+  // 4. المتعاقدين (Contracted) - جربونا مرة وحابين يشتغلوا معانا تاني سواء في نفس المشروع أو آخر فتعاقدوا معانا
+  {
+    id: 'vault-con-1',
+    category: 'contracted',
+    title: 'شركة البناء المتكامل للتطوير العقاري',
+    entityType: 'تطوير عقاري ومقاولات كبرى',
+    date: '2026-03-12',
+    description: 'بعد نجاح التجربة الأولى في الربع السابق، طلبوا العمل مجدداً لتوسيع النطاق وتم توقيع عقد شراكة سنوي رسمي متجدد لمشروع التطوير الشامل.',
+    engagementModel: 'عقد استشاري وتنفيذي سنوي متجدد',
+    projectOrDomain: 'تطوير نظم المتابعة التشغيلية وإدارة المشاريع',
+    outcomeOrValue: 'تعاقد رسمي مستدام وتكرار العمل بثقة كاملة بعد تجربة ناجحة',
+    notes: 'العميل جربنا وأكد رغبته في الاستمرار في مشاريع جديدة متعددة.',
+    createdAt: '2026-03-12T16:20:00Z',
+  },
+  {
+    id: 'vault-con-2',
+    category: 'contracted',
+    title: 'مؤسسة الحلول المتقدمة للتجارة والتوكيلات',
+    entityType: 'تجارة وتوريدات وتوزيع',
+    date: '2026-03-22',
+    description: 'عميل أتم معنا المرحلة التجريبية بنجاح مبهر ورغب بالتعاقد الرسمي لتنفيذ مشروع أوسع وأشمل لكافة المستودعات والمنافذ.',
+    engagementModel: 'عقد تنفيذ وتطوير متكامل رسمي',
+    projectOrDomain: 'نظام قياس كفاءة المستودعات والمخزون وحركة التوزيع',
+    outcomeOrValue: 'تثبيت علاقة التعاقد طويل المدى بعد التجربة الأولى الموفقة',
+    notes: 'تم توقيع بنود الاتفاقية ومحضر بدء المشروع الثاني رسمياً.',
+    createdAt: '2026-03-22T10:30:00Z',
   }
 ];
 
@@ -874,7 +1033,76 @@ export const INITIAL_LADDER_ROADMAP = {
 };
 
 // 5. Initial Member Profiles (Professional & Business Relationships)
-export const INITIAL_RELATIONSHIPS = [];
+export const INITIAL_RELATIONSHIPS: RelationshipContact[] = [
+  {
+    id: 'contact-1',
+    name: 'م. أحمد عبد الرحمن المنشاوي',
+    age: 38,
+    religion: 'مسلم',
+    jobTitle: 'مدير العمليات وسلاسل الإمداد والتطوير',
+    experience: '14 سنة خبرة في إدارة المستودعات واللوجستيات وهندسة العمليات التشغيلية',
+    address: 'المنصورة، حي الجامعة، شارع أحمد ماهر',
+    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    avatarInitials: 'أم',
+    
+    // طرق التواصل
+    phone1: '+20 100 123 4567',
+    phone2: '+20 122 987 6543',
+    whatsapp: '+201001234567',
+    facebook: 'facebook.com/ahmed.elmenshawy',
+    instagram: '@ahmed_menshawy',
+    linkedin: 'linkedin.com/in/ahmed-menshawy-ops',
+    xTwitter: '@A_Menshawy',
+
+    // تفاصيل العلاقة
+    trustLevel: 'عالية جداً (95%)',
+    strengths: 'علاقات متشعبة مع كبرى المجموعات التجارية، دقة عالية في ضبط التكاليف والالتزام بالوعود، قدرة تفاوضية استثنائية.',
+    weaknesses: 'جدوله مزدحم للغاية، يتطلب التنسيق المسبق قبل أي اجتماع بيومين على الأقل.',
+    potentialBenefit: 'تسهيل الشراكات مع 4 قطاعات لوجستية وتجارية رئيسية، وفتح فرص توقيع عقود سنوية مدفوعة مع مجموعته.',
+
+    organization: 'مجموعة النيل للتوريدات واللوجستيات',
+    roleType: 'active-client',
+    relationshipStatus: 'active-deal',
+    lastContactDate: '2026-03-24',
+    lastContactResult: 'تم الاتفاق على تجديد العقد التشغيلي للمرحلة الثانية بنجاح',
+    nextStep: 'إرسال مسودة ملحق العقد للاعتماد النهائي',
+    nextStepDate: '2026-03-28',
+  },
+  {
+    id: 'contact-2',
+    name: 'د. سارة كمال الدين الحريري',
+    age: 34,
+    religion: 'مسلمة',
+    jobTitle: 'استشارية تحول رقمي وحوكمة مؤسسية',
+    experience: '10 سنوات في قيادة مشاريع التحول الرقمي وإدارة المخاطر وحوكمة الأنظمة',
+    address: 'القاهرة / المنصورة، برج الأندلس، المشاية السفلية',
+    photoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
+    avatarInitials: 'سح',
+
+    // طرق التواصل
+    phone1: '+20 111 555 7890',
+    phone2: '+20 109 444 3210',
+    whatsapp: '+201115557890',
+    facebook: 'facebook.com/dr.sara.hariri',
+    instagram: '@dr_sara_hariri',
+    linkedin: 'linkedin.com/in/sara-hariri-gov',
+    xTwitter: '@SaraHariri_Gov',
+
+    // تفاصيل العلاقة
+    trustLevel: 'ممتازة (90%)',
+    strengths: 'خبرة تقنية عميقة، موضوعية صارمة في تقييم الفجوات، شبكة تواصل وثيقة مع صناديق الاستثمار والجهات التنظيمية.',
+    weaknesses: 'معاييرها الفنية شديدة الصرامة ولا تقبل الحلول المؤقتة غير المدروسة.',
+    potentialBenefit: 'اعتماد الحلول الاستشارية الخاصة بنا وتوجيه العملاء المحتملين للاستعانة بخبراتنا في تحليل البيانات وتطوير العمليات.',
+
+    organization: 'شركة مدار للحلول الاستشارية',
+    roleType: 'advisor',
+    relationshipStatus: 'nurturing',
+    lastContactDate: '2026-03-20',
+    lastContactResult: 'جلسة نقاش إيجابية حول دراسة الجدوى التشغيلية',
+    nextStep: 'عرض مقترح القيمة المضافة المشترك',
+    nextStepDate: '2026-03-30',
+  }
+];
 
 // 6. Initial Client Main KPIs (3 Donut Circles: Commerce, Influences, Trust)
 export const INITIAL_CLIENT_KPIS: ClientKpiCircle[] = [

@@ -17,7 +17,12 @@ import {
   Calendar,
   Building,
   User,
-  Info
+  Info,
+  Vault,
+  HeartHandshake,
+  UserCheck,
+  FileCheck,
+  Eye
 } from 'lucide-react';
 import { 
   MarketAcquisitionTarget, 
@@ -27,17 +32,26 @@ import {
   OpportunityStage,
   BusinessModelCanvas,
   ClientKpiCircle,
-  ClientKpiCategory
+  ClientKpiCategory,
+  VaultRecord,
+  VaultCategory
 } from '../../types/dashboard';
-import { INITIAL_CLIENT_KPIS } from '../../data/mockData';
+import { INITIAL_CLIENT_KPIS, INITIAL_VAULT_RECORDS } from '../../data/mockData';
 import { BusinessModelCanvasPanel } from './BusinessModelCanvasPanel';
 import { ClientMainKpisCard } from './ClientMainKpisCard';
 import { ClientKpiDetailModal } from '../Modals/ClientKpiDetailModal';
+import { VaultModal } from '../Modals/VaultModal';
 
 interface StrategicRacketsPanelProps {
-  // 1. Ring Completion: Market Targets
-  marketTargets: MarketAcquisitionTarget[];
-  onUpdateMarketTarget: (target: MarketAcquisitionTarget) => void;
+  // 1. Vault (الخزينة الاستراتيجية - 4 مؤشرات بدون حد أقصى وأرشيف العمليات)
+  vaultRecords?: VaultRecord[];
+  onAddVaultRecord?: (record: VaultRecord) => void;
+  onUpdateVaultRecord?: (record: VaultRecord) => void;
+  onDeleteVaultRecord?: (recordId: string) => void;
+
+  // Backwards compatibility for marketTargets
+  marketTargets?: MarketAcquisitionTarget[];
+  onUpdateMarketTarget?: (target: MarketAcquisitionTarget) => void;
   
   // 2. Strategic Perks: Opportunities
   opportunities: StrategicOpportunity[];
@@ -62,7 +76,11 @@ interface StrategicRacketsPanelProps {
 }
 
 export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
-  marketTargets,
+  vaultRecords,
+  onAddVaultRecord,
+  onUpdateVaultRecord,
+  onDeleteVaultRecord,
+  marketTargets = [],
   onUpdateMarketTarget,
   opportunities,
   onAddOpportunity,
@@ -80,6 +98,37 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
   onSelectRelationship,
   onOpenHierarchyTree,
 }) => {
+  // Vault State: 4 Uncapped Indicators with Full Chronological History
+  const [localVaultRecords, setLocalVaultRecords] = useState<VaultRecord[]>(vaultRecords || INITIAL_VAULT_RECORDS);
+  const [selectedVaultCategory, setSelectedVaultCategory] = useState<VaultCategory>('relationships');
+
+  React.useEffect(() => {
+    if (vaultRecords && vaultRecords.length > 0) {
+      setLocalVaultRecords(vaultRecords);
+    }
+  }, [vaultRecords]);
+
+  const handleAddVaultRecord = (record: VaultRecord) => {
+    setLocalVaultRecords(prev => [record, ...prev]);
+    if (onAddVaultRecord) onAddVaultRecord(record);
+  };
+
+  const handleUpdateVaultRecord = (record: VaultRecord) => {
+    setLocalVaultRecords(prev => prev.map(r => r.id === record.id ? record : r));
+    if (onUpdateVaultRecord) onUpdateVaultRecord(record);
+  };
+
+  const handleDeleteVaultRecord = (recordId: string) => {
+    setLocalVaultRecords(prev => prev.filter(r => r.id !== recordId));
+    if (onDeleteVaultRecord) onDeleteVaultRecord(recordId);
+  };
+
+  const vaultRelCount = localVaultRecords.filter(r => r.category === 'relationships').length;
+  const vaultTgtCount = localVaultRecords.filter(r => r.category === 'target_leads').length;
+  const vaultCurCount = localVaultRecords.filter(r => r.category === 'current_clients').length;
+  const vaultConCount = localVaultRecords.filter(r => r.category === 'contracted').length;
+  const totalVaultCount = localVaultRecords.length;
+
   // Client Main KPIs 3 Circles State
   const [localKpis, setLocalKpis] = useState<ClientKpiCircle[]>(clientKpis || INITIAL_CLIENT_KPIS);
   const [isKpiModalOpen, setIsKpiModalOpen] = useState(false);
@@ -106,7 +155,7 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
   };
 
   // Modal states for modal interactions
-  const [activeModal, setActiveModal] = useState<'ring' | 'perks' | 'revenue' | null>(null);
+  const [activeModal, setActiveModal] = useState<'vault' | 'ring' | 'perks' | 'revenue' | null>(null);
 
   // Selected item states
   const [editingTarget, setEditingTarget] = useState<MarketAcquisitionTarget | null>(null);
@@ -213,7 +262,7 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
   const handleSaveTarget = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTarget) return;
-    onUpdateMarketTarget(editingTarget);
+    if (onUpdateMarketTarget) onUpdateMarketTarget(editingTarget);
     setEditingTarget(null);
   };
 
@@ -237,7 +286,7 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
     onAddOpportunity(newOpp);
     // Also update actual qualified opportunity count if relevant
     const oppTarget = marketTargets.find(t => t.stage === 'opportunities');
-    if (oppTarget) {
+    if (oppTarget && onUpdateMarketTarget) {
       onUpdateMarketTarget({
         ...oppTarget,
         actualCount: oppTarget.actualCount + 1,
@@ -283,109 +332,114 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
     <>
       <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-2">
         
-        {/* 1. CARD 1: RING COMPLETION (Market Acquisition Pipeline Targets) - COMPACT */}
+        {/* 1. CARD 1: VAULT (الخزينة - 4 مؤشرات بدون حد أقصى مع أرشيف تاريخي) - COMPACT */}
         <div 
-          onClick={() => setActiveModal('ring')}
+          onClick={() => {
+            setSelectedVaultCategory('relationships');
+            setActiveModal('vault');
+          }}
           className="command-card p-2 sm:p-2.5 flex flex-col justify-between h-full cursor-pointer hover:border-[#B31B24] transition-all group"
-          title="انقر لتعديل وإدارة أهداف السوق"
+          title="انقر لفتح واستعراض الخزينة (Vault) والأرشيف التاريخي للعمليات"
         >
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <h2 className="font-serif-title text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#1C191E] flex items-center gap-1">
-                <span>RING COMPLETION</span>
-                <span className="text-[9px] text-[#7A747D] font-normal normal-case font-sans">(أهداف السوق)</span>
+              <h2 className="font-serif-title text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#1C191E] flex items-center gap-1.5">
+                <Vault className="w-3.5 h-3.5 text-[#B31B24]" />
+                <span>VAULT</span>
+                <span className="text-[9px] text-[#7A747D] font-normal normal-case font-sans">(الخزينة)</span>
               </h2>
               <div className="flex items-center gap-1">
-                <span className="font-mono-num font-bold text-xs text-[#1C191E]">
-                  {totalActual}/{totalTargeted}
+                <span className="text-[8.5px] text-[#7A747D]">إجمالي:</span>
+                <span className="font-mono-num font-bold text-xs text-[#1C191E] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E5DECE]">
+                  {totalVaultCount}
                 </span>
-                <Edit3 className="w-2.5 h-2.5 text-[#7A747D] group-hover:text-[#B31B24] transition-colors" />
+                <Eye className="w-2.5 h-2.5 text-[#7A747D] group-hover:text-[#B31B24] transition-colors" />
               </div>
             </div>
 
-            {/* Solid Crimson Bar */}
-            <div className="w-full bg-[#EFEAE0] rounded-full h-1 overflow-hidden">
-              <div 
-                className="h-full bg-[#B31B24] transition-all duration-300" 
-                style={{ width: `${ringCompletionPct}%` }}
-              />
-            </div>
-
-            {/* 4 Square Status Boxes in a row */}
+            {/* 4 Square Status Boxes in a row: 4 Open-ended Indicators with fitting icons */}
             <div className="grid grid-cols-4 gap-1 pt-0.5">
-              {/* Box 1: Identified */}
-              <div className="p-1 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
-                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#B31B24] mb-0.5">
-                  <Target className="w-2.5 h-2.5" />
+              {/* Box 1: العلاقات (Relationships) */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedVaultCategory('relationships');
+                  setActiveModal('vault');
+                }}
+                className="p-1 rounded-lg bg-[#FAF8F5] hover:bg-[#F0F9FF] border border-[#E5DECE] hover:border-[#BAE6FD] transition-all flex flex-col items-center justify-center text-center cursor-pointer group/box shadow-2xs"
+                title="العلاقات: العلاقات التي جمعناها من الشغل بجميع أنواعها (انقر لفتح الأرشيف)"
+              >
+                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#BAE6FD] text-[#0284C7] mb-0.5 group-hover/box:scale-110 transition-transform">
+                  <HeartHandshake className="w-3 h-3" />
                 </div>
-                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox1.title}>
-                  مستهدفة
+                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full">
+                  العلاقات
                 </span>
-                <div className="w-full bg-[#E5DECE] h-0.5 rounded-full my-0.5 overflow-hidden">
-                  <div 
-                    className="bg-[#B31B24] h-full" 
-                    style={{ width: `${box1Pct}%` }}
-                  />
-                </div>
-                <span className="font-mono-num text-[8.5px] font-bold text-[#1C191E]">
-                  {targetBox1.actualCount}/{targetBox1.targetCount}
-                </span>
-              </div>
-
-              {/* Box 2: Contacted */}
-              <div className="p-1 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
-                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#D97706] mb-0.5">
-                  <Clock className="w-2.5 h-2.5" />
-                </div>
-                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox2.title}>
-                  تواصل
-                </span>
-                <div className="w-full bg-[#E5DECE] h-0.5 rounded-full my-0.5 overflow-hidden">
-                  <div 
-                    className="bg-[#D97706] h-full" 
-                    style={{ width: `${box2Pct}%` }}
-                  />
-                </div>
-                <span className="font-mono-num text-[8.5px] font-bold text-[#1C191E]">
-                  {targetBox2.actualCount}/{targetBox2.targetCount}
+                <span className="font-mono-num text-[11px] font-black text-[#0284C7] mt-0.5">
+                  {vaultRelCount}
                 </span>
               </div>
 
-              {/* Box 3: Meetings */}
-              <div className="p-1 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
-                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#B31B24] mb-0.5">
-                  <Layers className="w-2.5 h-2.5" />
+              {/* Box 2: العملاء المستهدفين (Target Leads) */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedVaultCategory('target_leads');
+                  setActiveModal('vault');
+                }}
+                className="p-1 rounded-lg bg-[#FAF8F5] hover:bg-[#FFFBEB] border border-[#E5DECE] hover:border-[#FDE68A] transition-all flex flex-col items-center justify-center text-center cursor-pointer group/box shadow-2xs"
+                title="العملاء المستهدفين: كام عميل مستهدف متاح للعرض عليه قيمتنا (انقر لفتح الأرشيف)"
+              >
+                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#FDE68A] text-[#D97706] mb-0.5 group-hover/box:scale-110 transition-transform">
+                  <Target className="w-3 h-3" />
                 </div>
-                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox3.title}>
-                  زيارات
+                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full">
+                  المستهدفين
                 </span>
-                <div className="w-full bg-[#E5DECE] h-0.5 rounded-full my-0.5 overflow-hidden">
-                  <div 
-                    className="bg-[#B31B24] h-full" 
-                    style={{ width: `${box3Pct}%` }}
-                  />
-                </div>
-                <span className="font-mono-num text-[8.5px] font-bold text-[#1C191E]">
-                  {targetBox3.actualCount}/{targetBox3.targetCount}
+                <span className="font-mono-num text-[11px] font-black text-[#D97706] mt-0.5">
+                  {vaultTgtCount}
                 </span>
               </div>
 
-              {/* Box 4: Opportunities */}
-              <div className="p-1 rounded-lg bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center justify-center text-center">
-                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#E5DECE] text-[#15803D] mb-0.5">
-                  <CheckCircle2 className="w-2.5 h-2.5" />
+              {/* Box 3: العملاء الحاليين (Current Clients) */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedVaultCategory('current_clients');
+                  setActiveModal('vault');
+                }}
+                className="p-1 rounded-lg bg-[#FAF8F5] hover:bg-[#F0FDF4] border border-[#E5DECE] hover:border-[#BBF7D0] transition-all flex flex-col items-center justify-center text-center cursor-pointer group/box shadow-2xs"
+                title="العملاء الحاليين: عملاء مستهدفين تم تحويلهم لبداية العمل معهم في نموذج مبدئي أو مجاني (انقر لفتح الأرشيف)"
+              >
+                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#BBF7D0] text-[#16A34A] mb-0.5 group-hover/box:scale-110 transition-transform">
+                  <UserCheck className="w-3 h-3" />
                 </div>
-                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full" title={targetBox4.title}>
-                  فرص
+                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full">
+                  الحاليين
                 </span>
-                <div className="w-full bg-[#E5DECE] h-0.5 rounded-full my-0.5 overflow-hidden">
-                  <div 
-                    className="bg-[#15803D] h-full" 
-                    style={{ width: `${box4Pct}%` }}
-                  />
+                <span className="font-mono-num text-[11px] font-black text-[#16A34A] mt-0.5">
+                  {vaultCurCount}
+                </span>
+              </div>
+
+              {/* Box 4: المتعاقدين (Contracted Clients) */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedVaultCategory('contracted');
+                  setActiveModal('vault');
+                }}
+                className="p-1 rounded-lg bg-[#FAF8F5] hover:bg-[#FEF2F2] border border-[#E5DECE] hover:border-[#FECACA] transition-all flex flex-col items-center justify-center text-center cursor-pointer group/box shadow-2xs"
+                title="المتعاقدين: جربونا مرة وحابين يشتغلوا معانا تاني سواء في نفس المشروع أو آخر فتعاقدوا معانا (انقر لفتح الأرشيف)"
+              >
+                <div className="p-0.5 rounded bg-[#FFFFFF] border border-[#FECACA] text-[#B31B24] mb-0.5 group-hover/box:scale-110 transition-transform">
+                  <FileCheck className="w-3 h-3" />
                 </div>
-                <span className="font-mono-num text-[8.5px] font-bold text-[#1C191E]">
-                  {targetBox4.actualCount}/{targetBox4.targetCount}
+                <span className="text-[7.5px] uppercase tracking-wider text-[#7A747D] font-bold block truncate w-full">
+                  المتعاقدين
+                </span>
+                <span className="font-mono-num text-[11px] font-black text-[#B31B24] mt-0.5">
+                  {vaultConCount}
                 </span>
               </div>
             </div>
@@ -393,8 +447,11 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
 
           {/* Footer */}
           <div className="pt-1 mt-1 border-t border-[#EFEAE0] flex items-center justify-between text-[9px] text-[#7A747D]">
-            <span>معدل إنجاز خطة السوق</span>
-            <span className="font-bold text-[#1C191E]">{ringCompletionPct}% محقق</span>
+            <span>مؤشرات تراكمية بدون سقف أعلى</span>
+            <span className="font-bold text-[#1C191E] flex items-center gap-1 group-hover:text-[#B31B24] transition-colors">
+              <span>فتح الأرشيف</span>
+              <span>←</span>
+            </span>
           </div>
         </div>
 
@@ -539,162 +596,17 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
       </div>
 
       {/* ========================================================= */}
-      {/* MODAL 1: Ring Completion (Market Acquisition Pipeline Targets) */}
+      {/* MODAL 1: VAULT (الخزينة الاستراتيجية - 4 مؤشرات بدون حد أقصى مع أرشيف تاريخي) */}
       {/* ========================================================= */}
-      {activeModal === 'ring' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
-          <div 
-            className="w-full max-w-2xl bg-[#FFFFFF] border border-[#E2DACB] rounded-2xl p-5 shadow-2xl text-[#1C191E] max-h-[90vh] overflow-y-auto custom-scrollbar"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-[#EFEAE0] pb-3 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] flex items-center justify-center text-[#B31B24]">
-                  <Target className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[10px] text-[#7A747D] uppercase font-bold tracking-wider">
-                    MARKET ACQUISITION PIPELINE
-                  </span>
-                  <h3 className="font-serif-title text-base sm:text-lg font-bold text-[#1C191E]">
-                    إدارة أهداف السوق وبناء شبكة العلاقات
-                  </h3>
-                </div>
-              </div>
-              <button
-                onClick={() => setActiveModal(null)}
-                className="p-1.5 rounded-lg text-[#7A747D] hover:text-[#1C191E] hover:bg-[#F5F2EB] transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-[#7A747D] mb-4">
-              قياس مدى التقدم في الوصول إلى الجهات المستهدفة في السوق وتطوير العلاقات إلى فرص فعلية. يتم احتساب التقدم وفق السجلات الفعلية.
-            </p>
-
-            {/* List of 4 stages with inline edit controls */}
-            <div className="space-y-3 mb-5">
-              {marketTargets.map((target) => {
-                const isEditingThis = editingTarget?.id === target.id;
-                const progressPct = target.targetCount > 0 ? Math.min(100, Math.round((target.actualCount / target.targetCount) * 100)) : 0;
-                
-                return (
-                  <div key={target.id} className="p-3.5 rounded-xl bg-[#FAF8F5] border border-[#E5DECE]">
-                    {isEditingThis ? (
-                      <form onSubmit={handleSaveTarget} className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-[#B31B24]">{target.title}</span>
-                          <span className="text-[10px] text-[#7A747D]">{target.subtitle}</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                          <div>
-                            <label className="block text-[10px] text-[#7A747D] mb-1 font-semibold">اسم الهدف</label>
-                            <input
-                              type="text"
-                              value={editingTarget.title}
-                              onChange={(e) => setEditingTarget({ ...editingTarget, title: e.target.value })}
-                              className="w-full px-2.5 py-1.5 rounded-lg bg-[#FFFFFF] border border-[#E5DECE] text-[#1C191E] text-xs focus:outline-none focus:border-[#B31B24]"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-[#7A747D] mb-1 font-semibold">العدد المستهدف</label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={editingTarget.targetCount}
-                              onChange={(e) => setEditingTarget({ ...editingTarget, targetCount: Math.max(1, parseInt(e.target.value) || 1) })}
-                              className="w-full px-2.5 py-1.5 rounded-lg bg-[#FFFFFF] border border-[#E5DECE] text-[#1C191E] text-xs focus:outline-none focus:border-[#B31B24]"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-[#7A747D] mb-1 font-semibold">العدد المحقق</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editingTarget.actualCount}
-                              onChange={(e) => setEditingTarget({ ...editingTarget, actualCount: Math.max(0, parseInt(e.target.value) || 0) })}
-                              className="w-full px-2.5 py-1.5 rounded-lg bg-[#FFFFFF] border border-[#E5DECE] text-[#1C191E] text-xs focus:outline-none focus:border-[#B31B24]"
-                              required
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] text-[#7A747D] mb-1 font-semibold">الفترة الزمنية</label>
-                          <input
-                            type="text"
-                            value={editingTarget.timeframe}
-                            onChange={(e) => setEditingTarget({ ...editingTarget, timeframe: e.target.value })}
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-[#FFFFFF] border border-[#E5DECE] text-[#1C191E] text-xs focus:outline-none focus:border-[#B31B24]"
-                          />
-                        </div>
-                        <div className="flex items-center justify-end gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setEditingTarget(null)}
-                            className="px-3 py-1.5 rounded-lg border border-[#E5DECE] bg-[#FFFFFF] text-xs text-[#7A747D] hover:bg-[#FAF8F5] cursor-pointer"
-                          >
-                            إلغاء
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-4 py-1.5 rounded-lg bg-[#B31B24] text-white text-xs font-bold hover:bg-[#990000] cursor-pointer"
-                          >
-                            حفظ التعديلات
-                          </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div>
-                            <h4 className="text-xs font-bold text-[#1C191E]">{target.title}</h4>
-                            <p className="text-[10px] text-[#7A747D]">{target.description}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono-num text-xs font-bold text-[#B31B24]">
-                              {target.actualCount} / {target.targetCount}
-                            </span>
-                            <button
-                              onClick={() => setEditingTarget(target)}
-                              className="p-1 rounded-md text-[#7A747D] hover:text-[#B31B24] hover:bg-[#FFFFFF] border border-transparent hover:border-[#E5DECE] cursor-pointer"
-                              title="تعديل هذا الهدف"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Progress line */}
-                        <div className="w-full bg-[#E5DECE] rounded-full h-1.5 overflow-hidden my-1.5">
-                          <div 
-                            className="bg-[#B31B24] h-full transition-all duration-300"
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between text-[9px] text-[#7A747D]">
-                          <span>الفترة: {target.timeframe}</span>
-                          <span className="font-bold text-[#1C191E]">{progressPct}% مكتمل</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => setActiveModal(null)}
-              className="w-full py-2.5 rounded-xl bg-[#FAF8F5] hover:bg-[#EFEAE0] border border-[#E5DECE] text-[#1C191E] text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
-            >
-              إغلاق
-            </button>
-          </div>
-        </div>
-      )}
+      <VaultModal
+        isOpen={activeModal === 'vault' || activeModal === 'ring'}
+        onClose={() => setActiveModal(null)}
+        vaultRecords={localVaultRecords}
+        onAddRecord={handleAddVaultRecord}
+        onUpdateRecord={handleUpdateVaultRecord}
+        onDeleteRecord={handleDeleteVaultRecord}
+        initialCategory={selectedVaultCategory}
+      />
 
       {/* ========================================================= */}
       {/* MODAL 2: Strategic Perks (Strategic Opportunities & Initiatives) */}

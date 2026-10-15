@@ -31,6 +31,7 @@ import {
   TacticalMapPinGraphic,
   DEFAULT_PRESET_COLORS
 } from '../StrategyCanvas/TacticalPinRegistry';
+import { compressImage } from '../../utils/storageUtils';
 
 interface AddMapLocationModalProps {
   isOpen: boolean;
@@ -157,17 +158,18 @@ export const AddMapLocationModal: React.FC<AddMapLocationModalProps> = ({
     setSavedColors(updated);
   };
 
-  // Handle image upload from file system
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image upload from file system with automatic compression
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setImageUrl(reader.result);
+    try {
+      const compressed = await compressImage(file, 600, 400, 0.75);
+      if (compressed) {
+        setImageUrl(compressed);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Failed to compress location image:', err);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
