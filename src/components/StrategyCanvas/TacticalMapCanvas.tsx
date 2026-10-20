@@ -438,8 +438,8 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     }
   }, [selectedNode?.id, focusOnPin]);
 
-  // Active venue
-  const activeVenue = selectedNode || nodes[0] || null;
+  // Active venue is ONLY the explicitly selected pin; if null, dossier closes completely
+  const activeVenue = selectedNode;
 
   // Jump to specific custom coordinates
   const handleJumpToCoordinates = (e?: React.FormEvent) => {
@@ -919,16 +919,24 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
 
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    onClick={() => setIsDossierMinimized(!isDossierMinimized)}
-                    className="p-1 text-[#7A747D] hover:text-[#1C191E] cursor-pointer"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsDossierMinimized(!isDossierMinimized);
+                    }}
+                    className="p-1 text-[#7A747D] hover:text-[#1C191E] hover:bg-[#F5F2EB] rounded transition-colors cursor-pointer"
                     title={isDossierMinimized ? "تكبير" : "تصغير"}
                   >
                     {isDossierMinimized ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </button>
                   <button
-                    onClick={() => onSelectNode(null)}
-                    className="p-1 text-[#7A747D] hover:text-[#B31B24] cursor-pointer"
-                    title="إغلاق"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectNode(null);
+                    }}
+                    className="p-1 text-[#7A747D] hover:text-[#B31B24] hover:bg-[#F7D5D8] rounded transition-colors cursor-pointer"
+                    title="إغلاق بطاقة الدبوس"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
