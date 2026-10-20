@@ -39,6 +39,7 @@ interface MemberModalProps {
   onDeleteContact: (contactId: string) => void;
   onAddContact: (contact: RelationshipContact) => void;
   isCreateMode?: boolean;
+  selectedLocation?: import('../../types/dashboard').RacketNode | null;
 }
 
 export const MemberModal: React.FC<MemberModalProps> = ({
@@ -49,6 +50,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   onDeleteContact,
   onAddContact,
   isCreateMode = false,
+  selectedLocation = null,
 }) => {
   const [isEditing, setIsEditing] = useState(isCreateMode || !contact);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -191,7 +193,8 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       weaknesses: weaknesses.trim() || undefined,
       potentialBenefit: potentialBenefit.trim() || undefined,
 
-      organization: contact?.organization || (jobTitle ? `جهة عمل ${name.split(' ')[0]}` : 'جهة عمل خاصة'),
+      organization: contact?.organization || (selectedLocation ? selectedLocation.name : (jobTitle ? `جهة عمل ${name.split(' ')[0]}` : 'جهة عمل خاصة')),
+      locationId: contact?.locationId || selectedLocation?.id || undefined,
       roleType: contact?.roleType || 'active-client',
       relationshipStatus: contact?.relationshipStatus || 'active-deal',
       lastContactDate: contact?.lastContactDate || new Date().toISOString().split('T')[0],

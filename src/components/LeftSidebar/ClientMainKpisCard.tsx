@@ -12,13 +12,16 @@ import {
   RefreshCw,
   Plus
 } from 'lucide-react';
-import { ClientKpiCircle, ClientKpiCategory } from '../../types/dashboard';
+import { ClientKpiCircle, ClientKpiCategory, RacketNode } from '../../types/dashboard';
+import { isClientOrContractedPin } from '../../utils/activityStatusHelpers';
+import { InactiveActivityNotice } from '../Common/InactiveActivityNotice';
 
 interface ClientMainKpisCardProps {
   circles: ClientKpiCircle[];
   onOpenCircleDetail: (category: ClientKpiCategory) => void;
   selectedLocationName?: string;
   isClientSelected?: boolean;
+  selectedLocation?: RacketNode | null;
 }
 
 export const ClientMainKpisCard: React.FC<ClientMainKpisCardProps> = ({
@@ -26,6 +29,7 @@ export const ClientMainKpisCard: React.FC<ClientMainKpisCardProps> = ({
   onOpenCircleDetail,
   selectedLocationName,
   isClientSelected = false,
+  selectedLocation = null,
 }) => {
   // Ensure we have the 3 canonical circles
   const commerceCircle = circles.find(c => c.id === 'commerce') || {
@@ -109,6 +113,32 @@ export const ClientMainKpisCard: React.FC<ClientMainKpisCardProps> = ({
       };
     }
   };
+
+  // If not an active client or contracted entity, show required Inactive notice
+  if (!isClientOrContractedPin(selectedLocation)) {
+    return (
+      <div className="command-card p-2 sm:p-2.5 flex flex-col justify-between h-full bg-[#FCFAF6] border border-[#E5DECE] rounded-xl hover:border-[#1C191E] transition-all relative overflow-hidden">
+        <div>
+          {/* Header Bar */}
+          <div className="flex items-center justify-between mb-1 pb-1 border-b border-[#EFEAE0]">
+            <div className="flex items-center gap-1">
+              <h2 className="font-serif-title text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#1C191E] flex items-center gap-1">
+                <span className="text-[#8A181F]">CLIENT MAIN KPIS</span>
+                <span className="text-[9px] text-[#7A747D] font-normal normal-case font-sans truncate max-w-[110px]">
+                  {selectedLocation ? `(${selectedLocation.name})` : '(المؤشرات)'}
+                </span>
+              </h2>
+            </div>
+            <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#F4EFE6] border border-[#E2DACB] text-[#7A747D] font-bold">
+              غير مفعّل
+            </span>
+          </div>
+
+          <InactiveActivityNotice selectedLocation={selectedLocation} compact={true} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 

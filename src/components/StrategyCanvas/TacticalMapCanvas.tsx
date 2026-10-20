@@ -207,10 +207,8 @@ const TacticalOverlayMarker: React.FC<TacticalOverlayMarkerProps> = ({ position,
 
 // Camera Controller Helper
 const MapController: React.FC<{
-  center: { lat: number; lng: number };
-  zoom: number;
   onMapReady?: (map: google.maps.Map) => void;
-}> = ({ center, zoom, onMapReady }) => {
+}> = ({ onMapReady }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -219,26 +217,41 @@ const MapController: React.FC<{
     }
   }, [map, onMapReady]);
 
-  useEffect(() => {
-    if (!map) return;
-    map.panTo(center);
-    map.setZoom(zoom);
-  }, [map, center.lat, center.lng, zoom]);
-
   return null;
 };
 
-// Custom Zoom Controls
+// Custom Zoom Controls with direct Google Maps instance binding
 const MapViewControls: React.FC<{
-  onZoomIn: () => void;
-  onZoomOut: () => void;
   onReset: () => void;
-}> = ({ onZoomIn, onZoomOut, onReset }) => {
+  mapInstance?: google.maps.Map | null;
+}> = ({ onReset, mapInstance }) => {
+  const contextMap = useMap();
+  const map = mapInstance || contextMap;
+
+  const handleZoomIn = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!map) return;
+    const currentZ = map.getZoom() || 13;
+    map.setZoom(currentZ + 1);
+  };
+
+  const handleZoomOut = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!map) return;
+    const currentZ = map.getZoom() || 13;
+    map.setZoom(Math.max(1, currentZ - 1));
+  };
+
+  const handleReset = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onReset();
+  };
+
   return (
-    <div className="flex flex-col gap-1 bg-[#FFFFFF]/95 backdrop-blur-xs border border-[#E2DACB] rounded-lg p-1 shadow-md">
+    <div className="flex flex-col gap-1 bg-[#FFFFFF]/95 backdrop-blur-xs border border-[#E2DACB] rounded-lg p-1 shadow-md z-30">
       <button
         type="button"
-        onClick={onZoomIn}
+        onClick={handleZoomIn}
         title="تكبير الخريطة (Zoom In)"
         className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F4F1EA] text-[#1C191E] hover:text-[#B31B24] transition-colors cursor-pointer"
       >
@@ -246,7 +259,7 @@ const MapViewControls: React.FC<{
       </button>
       <button
         type="button"
-        onClick={onZoomOut}
+        onClick={handleZoomOut}
         title="تصغير الخريطة (Zoom Out)"
         className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F4F1EA] text-[#1C191E] hover:text-[#B31B24] transition-colors cursor-pointer"
       >
@@ -255,7 +268,7 @@ const MapViewControls: React.FC<{
       <div className="h-px bg-[#EFEAE0] my-0.5" />
       <button
         type="button"
-        onClick={onReset}
+        onClick={handleReset}
         title="إعادة التموضع إلى المركز (Reset Camera)"
         className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F4F1EA] text-[#7A747D] hover:text-[#B31B24] transition-colors cursor-pointer"
       >
@@ -361,6 +374,10 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     setInputLat(String(preset.lat));
     setInputLng(String(preset.lng));
     setCurrentTelemetry(preset);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.panTo({ lat: preset.lat, lng: preset.lng });
+      mapInstanceRef.current.setZoom(preset.zoom);
+    }
   }, [region, getRegionCenter]);
 
   // Focus and Zoom onto a pin and its surroundings (level 16)
@@ -623,8 +640,8 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
               });
             }}
           >
-            {/* Smooth Fly Controller */}
-            <MapController center={mapCenter} zoom={mapZoom} onMapReady={handleMapReady} />
+            {/* Map Reference Binder */}
+            <MapController onMapReady={handleMapReady} />
 
             {/* RENDER EXCLUSIVELY TACTICAL PINS (ALL MAP ITEMS ARE IN PIN SHAPE) */}
             {nodes.map((node) => {
@@ -760,6 +777,14 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
               </TacticalOverlayMarker>
             )}
           </Map>
+
+          {/* Floating Custom Zoom Controls inside APIProvider (Top Left) */}
+          <div className="absolute top-3 left-3 z-30">
+            <MapViewControls
+              onReset={handleResetCamera}
+              mapInstance={mapInstanceRef.current}
+            />
+          </div>
         </APIProvider>
 
         {/* ------------------------------------------------------------- */}
@@ -790,15 +815,6 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
               <div className="w-0.5 h-2.5 bg-gradient-to-b from-[#B31B24] to-[#7A747D]" />
             </div>
           </div>
-        </div>
-
-        {/* Floating Custom Zoom Controls (Top Left) */}
-        <div className="absolute top-3 left-3 z-20">
-          <MapViewControls
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onReset={handleResetCamera}
-          />
         </div>
 
         {/* Captured Location Quick Bar */}

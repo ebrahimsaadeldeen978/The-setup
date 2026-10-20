@@ -39,6 +39,7 @@ import {
 import { INITIAL_CLIENT_KPIS, INITIAL_VAULT_RECORDS } from '../../data/mockData';
 import { BusinessModelCanvasPanel } from './BusinessModelCanvasPanel';
 import { ClientMainKpisCard } from './ClientMainKpisCard';
+import { isClientOrContractedPin } from '../../utils/activityStatusHelpers';
 import { ClientKpiDetailModal } from '../Modals/ClientKpiDetailModal';
 import { VaultModal } from '../Modals/VaultModal';
 
@@ -529,7 +530,7 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
         </div>
 
         {/* 3. CARD 3: CLIENT MAIN KPIS (3 DONUT CHARTS) OR BUSINESS MODEL CANVAS */}
-        {selectedLocation && (selectedLocation.locationCategory === 'potential-client' || selectedLocation.locationCategory === 'current-client' || selectedLocation.controllingSyndicate === 'عميل مستهدف') ? (
+        {isClientOrContractedPin(selectedLocation) ? (
           <div className="flex flex-col h-full bg-[#FCFAF6] border border-[#E5DECE] rounded-xl overflow-hidden shadow-2xs">
             {/* Top Switcher Tab between Client Main KPIs & BMC */}
             <div className="flex items-center justify-between px-2.5 py-1.5 bg-[#FAF8F5] border-b border-[#EFEAE0] text-[10px]">
@@ -557,7 +558,7 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
               </div>
 
               <span className="text-[9px] text-[#554F59] font-bold truncate max-w-[130px]">
-                {selectedLocation.name}
+                {selectedLocation?.name}
               </span>
             </div>
 
@@ -566,7 +567,8 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
                 <ClientMainKpisCard
                   circles={localKpis}
                   onOpenCircleDetail={handleOpenCircleDetail}
-                  selectedLocationName={selectedLocation.name}
+                  selectedLocationName={selectedLocation?.name}
+                  selectedLocation={selectedLocation}
                   isClientSelected={true}
                 />
               ) : (
@@ -589,6 +591,7 @@ export const StrategicRacketsPanel: React.FC<StrategicRacketsPanelProps> = ({
           <ClientMainKpisCard
             circles={localKpis}
             onOpenCircleDetail={handleOpenCircleDetail}
+            selectedLocation={selectedLocation}
             isClientSelected={false}
           />
         )}

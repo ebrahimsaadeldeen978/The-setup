@@ -659,6 +659,7 @@ export default function App() {
           onClose={() => setIsRelationshipModalOpen(false)}
           contact={selectedRelationship}
           isCreateMode={isRelationshipCreateMode}
+          selectedLocation={selectedNode}
           onAddContact={(newContact) => {
             setRelationships(prev => [newContact, ...prev]);
             setSelectedRelationship(newContact);

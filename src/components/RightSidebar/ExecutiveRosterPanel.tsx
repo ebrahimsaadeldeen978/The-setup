@@ -34,6 +34,9 @@ import {
   LadderRoadmapModel,
   DepartmentKey
 } from '../../types/dashboard';
+import { isClientOrContractedPin } from '../../utils/activityStatusHelpers';
+import { InactiveActivityNotice } from '../Common/InactiveActivityNotice';
+import { EmptyLocationContactsNotice } from '../Common/EmptyLocationContactsNotice';
 
 interface ExecutiveRosterPanelProps {
   // 4. Organizational Hierarchy (4 Departments & 6-Step Ladder)
@@ -69,22 +72,17 @@ export const ExecutiveRosterPanel: React.FC<ExecutiveRosterPanelProps> = ({
   const [activeHierarchyView, setActiveHierarchyView] = useState<'departments' | 'ladder'>('departments');
   const [selectedStepKey, setSelectedStepKey] = useState<string | null>('step-1');
 
-  // Determine if selected location is a commercial enterprise / client (shows Organizational Hierarchy)
-  const isClientOrBusiness = !selectedLocation || (
-    selectedLocation.locationCategory === 'potential-client' ||
-    selectedLocation.locationCategory === 'current-client' ||
-    selectedLocation.locationCategory === 'business-supplier' ||
-    selectedLocation.controllingSyndicate === 'عميل مستهدف'
-  );
+  // Determine if selected location is an active client or contracted entity
+  const isClientOrContracted = isClientOrContractedPin(selectedLocation);
 
-  // Filter contacts belonging to this location (or all if none selected)
+  // Filter contacts belonging to this location (or none if no location selected)
   const displayedRelationships = selectedLocation
     ? relationships.filter(r => 
         (r.locationId && r.locationId === selectedLocation.id) ||
         (r.organization && selectedLocation.name && r.organization.trim().toLowerCase().includes(selectedLocation.name.trim().toLowerCase())) ||
         (r.organization && selectedLocation.name && selectedLocation.name.trim().toLowerCase().includes(r.organization.trim().toLowerCase()))
       )
-    : relationships;
+    : [];
 
   // Departments safe fallback
   const departments = orgHierarchy?.departments || [
@@ -136,48 +134,55 @@ export const ExecutiveRosterPanel: React.FC<ExecutiveRosterPanelProps> = ({
               <span>ORGANIZATIONAL HIERARCHY</span>
             </h2>
           </div>
-          <button 
-            onClick={() => onOpenHierarchyTree(activeHierarchyView)}
-            className="text-[#9A94A0] hover:text-[#B31B24] transition-colors cursor-pointer p-1 rounded hover:bg-[#F5F2EB]"
-            title="تخصيص وإدارة هيكل العمليات والأقسام والمقاييس"
-          >
-            <Settings className="w-3.5 h-3.5" />
-          </button>
+          {isClientOrContracted ? (
+            <button 
+              onClick={() => onOpenHierarchyTree(activeHierarchyView)}
+              className="text-[#9A94A0] hover:text-[#B31B24] transition-colors cursor-pointer p-1 rounded hover:bg-[#F5F2EB]"
+              title="تخصيص وإدارة هيكل العمليات والأقسام والمقاييس"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#F4EFE6] border border-[#E2DACB] text-[#7A747D] font-bold">
+              غير مفعّل
+            </span>
+          )}
         </div>
 
-        {/* View Switcher: Lively, sleek tabs */}
-        <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-[#F2EDE4] border border-[#E2DACB] text-[9.5px] font-bold">
-          <button
-            type="button"
-            onClick={() => setActiveHierarchyView('departments')}
-            className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
-              activeHierarchyView === 'departments'
-                ? 'bg-[#FFFFFF] text-[#B31B24] shadow-xs border border-[#E0D8C8]'
-                : 'text-[#7A747D] hover:text-[#1C191E]'
-            }`}
-          >
-            <GitBranch className="w-3 h-3" />
-            <span>الأقسام الـ 4 ({overallOrgScore}%)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveHierarchyView('ladder')}
-            className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
-              activeHierarchyView === 'ladder'
-                ? 'bg-[#FFFFFF] text-[#B31B24] shadow-xs border border-[#E0D8C8]'
-                : 'text-[#7A747D] hover:text-[#1C191E]'
-            }`}
-          >
-            <ListOrdered className="w-3 h-3" />
-            <span>سلّم الـ 6 خطوات ({ladderOverall}%)</span>
-          </button>
-        </div>
+        {isClientOrContracted ? (
+          <>
+            {/* View Switcher: Lively, sleek tabs */}
+            <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-[#F2EDE4] border border-[#E2DACB] text-[9.5px] font-bold">
+              <button
+                type="button"
+                onClick={() => setActiveHierarchyView('departments')}
+                className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  activeHierarchyView === 'departments'
+                    ? 'bg-[#FFFFFF] text-[#B31B24] shadow-xs border border-[#E0D8C8]'
+                    : 'text-[#7A747D] hover:text-[#1C191E]'
+                }`}
+              >
+                <GitBranch className="w-3 h-3" />
+                <span>الأقسام الـ 4 ({overallOrgScore}%)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveHierarchyView('ladder')}
+                className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  activeHierarchyView === 'ladder'
+                    ? 'bg-[#FFFFFF] text-[#B31B24] shadow-xs border border-[#E0D8C8]'
+                    : 'text-[#7A747D] hover:text-[#1C191E]'
+                }`}
+              >
+                <ListOrdered className="w-3 h-3" />
+                <span>سلّم الـ 6 خطوات ({ladderOverall}%)</span>
+              </button>
+            </div>
 
-        {/* HIERARCHICAL VIEW CONTAINER */}
-        {isClientOrBusiness ? (
-          <div>
-            {/* VIEW 1: 4 CORE DEPARTMENTS CELL TREE */}
-            {activeHierarchyView === 'departments' && (
+            {/* HIERARCHICAL VIEW CONTAINER */}
+            <div>
+              {/* VIEW 1: 4 CORE DEPARTMENTS CELL TREE */}
+              {activeHierarchyView === 'departments' && (
               <div 
                 className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] flex flex-col items-center hover:border-[#B31B24] transition-all group/tree relative"
               >
@@ -442,38 +447,36 @@ export const ExecutiveRosterPanel: React.FC<ExecutiveRosterPanelProps> = ({
                 </div>
               </div>
             )}
-          </div>
-        ) : (
-          <div className="p-3.5 rounded-xl bg-[#FAF8F5] border border-[#E5DECE] text-center text-[10px] text-[#7A747D]">
-            <Building2 className="w-5 h-5 text-[#7A747D] mx-auto mb-1 opacity-50" />
-            <span>مخطط الأقسام والعمليات يظهر حصرياً للعملاء والأنشطة التجارية</span>
-          </div>
-        )}
+            </div>
 
-        {/* Row of 7 Specialty Badges matching exact original card icons */}
-        <div className="flex items-center justify-between pt-1 border-t border-[#EFEAE0]">
-          <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#B31B24]" title="استكشاف وفحص">
-            <Crosshair className="w-3 h-3" />
-          </div>
-          <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#D97706]" title="تحليل فجوات">
-            <Key className="w-3 h-3" />
-          </div>
-          <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#554F59]" title="إدارة عمليات">
-            <Building2 className="w-3 h-3" />
-          </div>
-          <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#B31B24]" title="سلاسل إمداد وتوريد">
-            <Truck className="w-3 h-3" />
-          </div>
-          <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#7C3AED]" title="مخرجات ونموذج عمل">
-            <Diamond className="w-3 h-3" />
-          </div>
-          <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#15803D]" title="تحسين وتدخل مقاس">
-            <Shield className="w-3 h-3" />
-          </div>
-          <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#B31B24]" title="فريق العمل والوظائف">
-            <Users className="w-3 h-3" />
-          </div>
-        </div>
+            {/* Row of 7 Specialty Badges matching exact original card icons */}
+            <div className="flex items-center justify-between pt-1 border-t border-[#EFEAE0]">
+              <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#B31B24]" title="استكشاف وفحص">
+                <Crosshair className="w-3 h-3" />
+              </div>
+              <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#D97706]" title="تحليل فجوات">
+                <Key className="w-3 h-3" />
+              </div>
+              <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#554F59]" title="إدارة عمليات">
+                <Building2 className="w-3 h-3" />
+              </div>
+              <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#B31B24]" title="سلاسل إمداد وتوريد">
+                <Truck className="w-3 h-3" />
+              </div>
+              <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#7C3AED]" title="مخرجات ونموذج عمل">
+                <Diamond className="w-3 h-3" />
+              </div>
+              <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#15803D]" title="تحسين وتدخل مقاس">
+                <Shield className="w-3 h-3" />
+              </div>
+              <div className="p-1 rounded bg-[#FAF8F5] border border-[#E5DECE] text-[#B31B24]" title="فريق العمل والوظائف">
+                <Users className="w-3 h-3" />
+              </div>
+            </div>
+          </>
+        ) : (
+          <InactiveActivityNotice selectedLocation={selectedLocation} compact={true} />
+        )}
       </div>
 
       {/* 2. CARD 2: MEMBER PROFILES (Bottom Card - Professional & Business Relationships) */}
@@ -489,13 +492,20 @@ export const ExecutiveRosterPanel: React.FC<ExecutiveRosterPanelProps> = ({
           </div>
           <div className="flex items-center gap-1">
             <button 
-              onClick={onOpenAddRelationship}
-              className="p-1 rounded bg-[#F7D5D8] border border-[#E89EAA] text-[#B31B24] hover:bg-[#B31B24] hover:text-white transition-colors cursor-pointer"
-              title="إضافة شخص أو علاقة جديدة"
+              type="button"
+              onClick={selectedLocation ? onOpenAddRelationship : undefined}
+              disabled={!selectedLocation}
+              className={`p-1 rounded transition-colors ${
+                selectedLocation
+                  ? 'bg-[#F7D5D8] border border-[#E89EAA] text-[#B31B24] hover:bg-[#B31B24] hover:text-white cursor-pointer'
+                  : 'bg-[#F4F1EA] border border-[#E5DECE] text-[#A8A1AF] cursor-not-allowed opacity-40'
+              }`}
+              title={selectedLocation ? "إضافة جهة اتصال لهذا الموقع" : "يجب تحديد دبوس على الخريطة أولاً لإنشاء جهة اتصال"}
             >
               <Plus className="w-3 h-3" />
             </button>
             <button 
+              type="button"
               onClick={onOpenAllRelationships}
               className="text-[#9A94A0] hover:text-[#B31B24] transition-colors cursor-pointer p-1"
               title="عرض كل العلاقات والتواصل"
@@ -507,16 +517,19 @@ export const ExecutiveRosterPanel: React.FC<ExecutiveRosterPanelProps> = ({
 
         {/* Contacts Roster matching original styling */}
         <div className="space-y-1.5 flex-1 overflow-y-auto max-h-[220px] custom-scrollbar pr-0.5">
-          {displayedRelationships.length === 0 ? (
+          {!selectedLocation ? (
+            <EmptyLocationContactsNotice compact={true} />
+          ) : displayedRelationships.length === 0 ? (
             <div className="p-4 text-center text-xs text-[#7A747D] bg-[#FAF8F5] rounded-xl border border-[#E5DECE]">
               <Users className="w-6 h-6 text-[#7A747D] mx-auto mb-1 opacity-40" />
               <p className="font-semibold text-[11px] text-[#1C191E]">لا توجد علاقات مسجلة لهذا الموقع بعد</p>
-              <p className="text-[9px] mt-0.5">اضغط على (+) لإضافة المسؤولين، مديري المشتريات، أو الشركاء</p>
+              <p className="text-[9px] mt-0.5 text-[#8A181F] font-bold">{selectedLocation.name}</p>
               <button
+                type="button"
                 onClick={onOpenAddRelationship}
-                className="mt-2 px-2.5 py-1 rounded bg-[#B31B24] text-white text-[10px] font-bold hover:bg-[#8A181F] transition-colors"
+                className="mt-2 px-2.5 py-1 rounded bg-[#B31B24] text-white text-[10px] font-bold hover:bg-[#8A181F] transition-colors cursor-pointer"
               >
-                + إضافة جهة اتصال
+                + إضافة جهة اتصال لهذا الموقع
               </button>
             </div>
           ) : (
